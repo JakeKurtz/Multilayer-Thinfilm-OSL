@@ -1,0 +1,223 @@
+/* ------------------------------------------------------------------------- *
+*
+*    Copyright (C) 2023 Jake Kurtz
+*
+*    This program is free software: you can redistribute it and/or modify
+*    it under the terms of the GNU General Public License as published by
+*    the Free Software Foundation, either version 3 of the License, or
+*    (at your option) any later version.
+*
+*    This program is distributed in the hope that it will be useful,
+*    but WITHOUT ANY WARRANTY; without even the implied warranty of
+*    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+*    GNU General Public License for more details.
+*
+*    You should have received a copy of the GNU General Public License
+*    along with this program. If not, see <https://www.gnu.org/licenses/>.
+*
+* ------------------------------------------------------------------------- */
+
+#include "spectral.h"
+#include "thinfilm.h"
+#include "complex.h"
+#include "complex_xyz.h"
+
+#define LAYERS 4
+#define SPECTRAL
+#define DIAGONALIZE
+
+void compute_interface(float lambda, complex n_i, complex n_j, complex ct_i, complex ct_j, float d_j, output cmatrix22 Ds_i, output cmatrix22 Dp_i, output cmatrix22 P_i)
+{
+    complex rs_ij = rs(n_i, n_j, ct_i, ct_j);
+    complex rs_ji = rs(n_j, n_i, ct_j, ct_i);
+    complex rp_ij = rp(n_i, n_j, ct_i, ct_j);
+    complex rp_ji = rp(n_j, n_i, ct_j, ct_i);
+
+    complex ts_ij = ts(n_i, n_j, ct_i, ct_j);
+    complex ts_ji = ts(n_j, n_i, ct_j, ct_i);
+    complex tp_ij = tp(n_i, n_j, ct_i, ct_j);
+    complex tp_ji = tp(n_j, n_i, ct_j, ct_i);
+
+    Ds_i = D_mat(rs_ij, rs_ji, ts_ij, ts_ji);
+    Dp_i = D_mat(rp_ij, rp_ji, tp_ij, tp_ji);
+    P_i  = P_mat(lambda, n_j, d_j, ct_j);
+}
+
+void thin_film(int layers, float lambda, complex n[LAYERS], float d[LAYERS], complex cos_theta[LAYERS], output float R, output float T)
+{
+    cmatrix22 Ts = identity(); cmatrix22 Tp = identity();
+
+    for (int k = 0; k < 1; k++) {
+
+    cmatrix22 Ds_i;  cmatrix22 Dp_i;  cmatrix22 P_i;    
+    cmatrix22 Ds_12; cmatrix22 Dp_12; cmatrix22 P_12;    
+    cmatrix22 Ds_21; cmatrix22 Dp_21; cmatrix22 P_21;
+
+    /* ----------------------------------- Air ---------------------------------- */
+
+    compute_interface(lambda, n[0], n[1], cos_theta[0], cos_theta[1], d[1], Ds_i, Dp_i, P_i);
+    Ts = Ts*Ds_i*P_i;
+    Tp = Tp*Dp_i*P_i;
+
+    /* --------------------------------- Layers --------------------------------- */
+
+    compute_interface(lambda, n[1], n[2], cos_theta[1], cos_theta[2], d[2], Ds_12, Dp_12, P_12);
+    compute_interface(lambda, n[2], n[1], cos_theta[2], cos_theta[1], d[1], Ds_21, Dp_21, P_21);  
+    
+#ifdef DIAGONALIZE
+    cmatrix22 _a = Ds_21*P_21; cmatrix22 _b = Ds_12*P_12; 
+    cmatrix22 _c = Dp_21*P_21; cmatrix22 _d = Dp_12*P_12;
+
+    cmatrix22 _x = identity(); cmatrix22 _y = identity();
+    cmatrix22 _w = identity(); cmatrix22 _z = identity();
+    
+    if (mod(layers, 2) == 0) {
+        _x = _a*_b; _y = _c*_d; 
+        _w = _b;    _z = _d;
+    } else {
+        _x = _b*_a;
+        _y = _d*_c;
+    }
+
+    cmatrix22 _Ds, _Dp, _Ps, _Pp;
+    diag(_x, _Ds, _Ps); diag(_y, _Dp, _Pp);
+
+    cmatrix22 _Ps_inv = inv(_Ps);
+    cmatrix22 _Pp_inv = inv(_Pp);
+
+    float k = ( (mod(layers, 2) == 0) ? layers : layers-1 ) * 0.5;
+
+    Ts = Ts * _w * (_Ps*pow(_Ds, k)*_Ps_inv);
+    Tp = Tp * _z * (_Pp*pow(_Dp, k)*_Pp_inv);
+#else
+    for (int i = 0; i < layers-1; i++) {
+        if (mod(i, 2) == 0) {
+            Ts = Ts*Ds_12*P_12;
+            Tp = Tp*Dp_12*P_12;
+        } else {     
+            Ts = Ts*Ds_21*P_21;
+            Tp = Tp*Dp_21*P_21;
+        }
+    }
+#endif
+
+    /* ---------------------------------- Base ---------------------------------- */
+    
+    int index = (mod(layers, 2) == 0) ? 2 : 1;
+    compute_interface(lambda, n[index], n[3], cos_theta[index], cos_theta[3], d[3], Ds_i, Dp_i, P_i);
+    Ts = Ts*Ds_i*P_i;
+    Tp = Tp*Dp_i*P_i;
+
+    }
+    /* ------------------------------- Send it B) ------------------------------- */
+
+    complex r_s = Ts.t10 / Ts.t00;
+    complex r_p = Tp.t10 / Tp.t00;
+
+    complex t_s = 1.0 / Ts.t00;
+    complex t_p = 1.0 / Tp.t00;
+
+    float R_s = modulus_sqrd(r_s);
+    float R_p = modulus_sqrd(r_p);
+
+    complex x = n[3] * cos_theta[3];
+    complex y = conjugate(n[3]) * cos_theta[3];
+    float z = n[0].r * cos_theta[0].r;
+
+    float T_s = (modulus_sqrd(t_s) * x.r) / z;
+    float T_p = (modulus_sqrd(t_p) * y.r) / z;
+
+    R = (R_s + R_p) * 0.5;
+    T = (T_s + T_p) * 0.5;
+}
+
+void sample_interfaces(float lambda, float sin_theta_0, complex_xyz n_xyz[LAYERS], output complex n[LAYERS], output complex cos_theta[LAYERS])
+{
+    n[0] = sample_xyz(lambda, n_xyz[0]);
+    n[1] = sample_xyz(lambda, n_xyz[1]);
+    n[2] = sample_xyz(lambda, n_xyz[2]);
+    n[3] = sample_xyz(lambda, n_xyz[3]);
+
+    cos_theta[1] = cos_theta_i(n[1], n[0], sin_theta_0);
+    cos_theta[2] = cos_theta_i(n[2], n[0], sin_theta_0);
+    cos_theta[3] = cos_theta_i(n[3], n[0], sin_theta_0);
+}
+
+shader ThinFilm
+(
+int layers = 5
+[[ string label = "Layers"]],
+
+color film_0_n = 1.56
+[[ string label = "IOR 1"]],
+color film_1_n = 1.475
+[[ string label = "IOR 2"]],
+
+color film_0_k = 0.0
+[[ string label = "Absorption 1"]],
+color film_1_k = 0.0
+[[ string label = "Absorption 2"]],
+
+float film_0_d = 110.0
+[[ string label = "Layer Thickness 1"]],
+float film_1_d = 90.0
+[[ string label = "Layer Thickness 2"]],
+
+color base_n = 1.5
+[[ string label = "Base IOR"]],
+color base_k = 0.0
+[[ string label = "Base Absorption"]],
+
+normal Normal = N,
+vector Incident = I,
+output color R = color(0.0),
+output color T = color(0.0)
+)
+{
+    float d[LAYERS];
+
+    d[0] = INFINITE;
+    d[1] = film_0_d;
+    d[2] = film_1_d;
+    d[3] = INFINITE;
+
+    complex n[LAYERS]; 
+    complex cos_theta[LAYERS];
+    complex_xyz n_xyz[LAYERS];
+
+    n_xyz[0] = complex_xyz(RGB_to_XYZ(color(1.0)), RGB_to_XYZ(color(0.0)));
+    n_xyz[1] = complex_xyz(RGB_to_XYZ(film_0_n),   RGB_to_XYZ(film_0_k));
+    n_xyz[2] = complex_xyz(RGB_to_XYZ(film_1_n),   RGB_to_XYZ(film_1_k));
+    n_xyz[3] = complex_xyz(RGB_to_XYZ(base_n),     RGB_to_XYZ(base_k));
+
+    cos_theta[0] = complex(max(dot(Normal, Incident), 1e-6), 0.0);
+    float sin_theta_0 = sqrt(1.0 - pow(cos_theta[0].r, 2.0));
+
+#ifdef SPECTRAL
+    float lambda_samples[LAMBDA_SAMPLES];
+    gen_lambda_samples(P, lambda_samples);
+
+    float spec_R[LAMBDA_SAMPLES];
+    float spec_T[LAMBDA_SAMPLES];
+
+    for (int i = 0; i < LAMBDA_SAMPLES; i++) {
+        sample_interfaces(lambda_samples[i], sin_theta_0, n_xyz, n, cos_theta);
+        thin_film(layers, lambda_samples[i], n, d, cos_theta, spec_R[i], spec_T[i]);
+    }
+
+    color rgb_R = SPEC_to_RGB(spec_R, lambda_samples);
+    color rgb_T = SPEC_to_RGB(spec_T, lambda_samples);
+
+    R = rgb_R;
+    T = rgb_T;
+#else
+    sample_interfaces(layers, 650.0, sin_theta_0, n_xyz, n, cos_theta);
+    thin_film(layers, 650.0, n, d, cos_theta, R.r, T.r);
+
+    sample_interfaces(532.0, sin_theta_0, n_xyz, n, cos_theta);
+    thin_film(layers, 532.0, n, d, cos_theta, R.g, T.g);
+
+    sample_interfaces(450.0, sin_theta_0, n_xyz, n, cos_theta);
+    thin_film(layers, 450.0, n, d, cos_theta, R.b, T.b);
+#endif
+}
