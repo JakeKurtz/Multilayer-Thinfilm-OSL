@@ -42,8 +42,61 @@ void compute_interface(float lambda, complex n_i, complex n_j, complex ct_i, com
     Dp_i = D_mat(rp_ij, rp_ji, tp_ij, tp_ji);
     P_i  = P_mat(lambda, n_j, d_j, ct_j);
 }
+//#define TEST
+#ifdef TEST
+void thin_film(float layers, float lambda, complex n[LAYERS], float d[LAYERS], complex cos_theta[LAYERS], output float R, output float T)
+{
+    cmatrix22 Ts = identity(); cmatrix22 Tp = identity();
 
-void thin_film(int layers, float lambda, complex n[LAYERS], float d[LAYERS], complex cos_theta[LAYERS], output float R, output float T)
+    cmatrix22 Ds_i;  cmatrix22 Dp_i;  cmatrix22 P_i;    
+    cmatrix22 Ds_12; cmatrix22 Dp_12; cmatrix22 P_12;    
+    cmatrix22 Ds_21; cmatrix22 Dp_21; cmatrix22 P_21;
+
+    /* ----------------------------------- Air ---------------------------------- */
+
+    compute_interface(lambda, n[0], n[1], cos_theta[0], cos_theta[1], d[1], Ds_i, Dp_i, P_i);
+    Ts = Ds_i*P_i;
+    Tp = Dp_i*P_i;
+
+    /* --------------------------------- Layers --------------------------------- */
+
+    compute_interface(lambda, n[1], n[2], cos_theta[1], cos_theta[2], d[2], Ds_12, Dp_12, P_12);
+    compute_interface(lambda, n[2], n[1], cos_theta[2], cos_theta[1], d[1], Ds_21, Dp_21, P_21);  
+    
+    cmatrix22 _a = Ds_21*P_21; cmatrix22 _b = Ds_12*P_12; 
+    cmatrix22 _c = Dp_21*P_21; cmatrix22 _d = Dp_12*P_12;
+
+    cmatrix22 _x = identity(); cmatrix22 _y = identity();
+    
+    _x = _b*_a;
+    _y = _d*_c;
+
+    cmatrix22 _Ds, _Dp, _Ps, _Pp;
+    diag(_x, _Ds, _Ps); diag(_y, _Dp, _Pp);
+
+    cmatrix22 _Ps_inv = inv(_Ps);
+    cmatrix22 _Pp_inv = inv(_Pp);
+
+    float k = (layers-1)*.5;
+
+    Ts = Ts * (_Ps*pow(_Ds, k)*_Ps_inv);
+    Tp = Tp * (_Pp*pow(_Dp, k)*_Pp_inv);
+
+    /* ------------------------------- Send it B) ------------------------------- */
+
+    complex r_s = Ts.t10 / Ts.t00;
+    complex r_p = Tp.t10 / Tp.t00;
+
+    float R_s = modulus_sqrd(r_s);
+    float R_p = modulus_sqrd(r_p);
+
+    R = (R_s + R_p) * 0.5;
+    T = 1.0 - R;
+}
+#endif
+#define TEST2
+#ifdef TEST2
+void thin_film(float layers, float lambda, complex n[LAYERS], float d[LAYERS], complex cos_theta[LAYERS], output float R, output float T)
 {
     cmatrix22 Ts = identity(); cmatrix22 Tp = identity();
 
@@ -130,6 +183,7 @@ void thin_film(int layers, float lambda, complex n[LAYERS], float d[LAYERS], com
     R = (R_s + R_p) * 0.5;
     T = (T_s + T_p) * 0.5;
 }
+#endif
 
 void sample_interfaces(float lambda, float sin_theta_0, complex_xyz n_xyz[LAYERS], output complex n[LAYERS], output complex cos_theta[LAYERS])
 {
@@ -185,13 +239,19 @@ output color T = color(0.0)
     complex cos_theta[LAYERS];
     complex_xyz n_xyz[LAYERS];
 
+    color eta_0 = backfacing() ? 1.0/film_0_n : film_0_n;
+    color eta_1 = backfacing() ? 1.0/film_1_n : film_1_n;
+    color eta_2 = backfacing() ? 1.0/base_n : base_n;
+
     n_xyz[0] = complex_xyz(RGB_to_XYZ(color(1.0)), RGB_to_XYZ(color(0.0)));
-    n_xyz[1] = complex_xyz(RGB_to_XYZ(film_0_n),   RGB_to_XYZ(film_0_k));
-    n_xyz[2] = complex_xyz(RGB_to_XYZ(film_1_n),   RGB_to_XYZ(film_1_k));
-    n_xyz[3] = complex_xyz(RGB_to_XYZ(base_n),     RGB_to_XYZ(base_k));
+    n_xyz[1] = complex_xyz(RGB_to_XYZ(eta_0), RGB_to_XYZ(film_0_k));
+    n_xyz[2] = complex_xyz(RGB_to_XYZ(eta_1), RGB_to_XYZ(film_1_k));
+    n_xyz[3] = complex_xyz(RGB_to_XYZ(eta_2), RGB_to_XYZ(base_k));
 
     cos_theta[0] = complex(max(dot(Normal, Incident), 1e-6), 0.0);
     float sin_theta_0 = sqrt(1.0 - pow(cos_theta[0].r, 2.0));
+
+    float _layers = ceil(layers) * 2.0 + 1.0;
 
 #ifdef SPECTRAL
     float lambda_samples[LAMBDA_SAMPLES];
@@ -202,7 +262,7 @@ output color T = color(0.0)
 
     for (int i = 0; i < LAMBDA_SAMPLES; i++) {
         sample_interfaces(lambda_samples[i], sin_theta_0, n_xyz, n, cos_theta);
-        thin_film(layers, lambda_samples[i], n, d, cos_theta, spec_R[i], spec_T[i]);
+        thin_film(_layers, lambda_samples[i], n, d, cos_theta, spec_R[i], spec_T[i]);
     }
 
     color rgb_R = SPEC_to_RGB(spec_R, lambda_samples);
@@ -211,13 +271,13 @@ output color T = color(0.0)
     R = rgb_R;
     T = rgb_T;
 #else
-    sample_interfaces(layers, 650.0, sin_theta_0, n_xyz, n, cos_theta);
-    thin_film(layers, 650.0, n, d, cos_theta, R.r, T.r);
+    sample_interfaces(650.0, sin_theta_0, n_xyz, n, cos_theta);
+    thin_film(_layers, 650.0, n, d, cos_theta, R.r, T.r);
 
     sample_interfaces(532.0, sin_theta_0, n_xyz, n, cos_theta);
-    thin_film(layers, 532.0, n, d, cos_theta, R.g, T.g);
+    thin_film(_layers, 532.0, n, d, cos_theta, R.g, T.g);
 
     sample_interfaces(450.0, sin_theta_0, n_xyz, n, cos_theta);
-    thin_film(layers, 450.0, n, d, cos_theta, R.b, T.b);
+    thin_film(_layers, 450.0, n, d, cos_theta, R.b, T.b);
 #endif
 }

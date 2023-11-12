@@ -20,7 +20,7 @@
 #include "spectral.h"
 #include "thinfilm.h"
 #include "complex.h"
-#include "complex_xyz.h"
+#include "ior.h"
 
 #define LAYERS 12
 #define SPECTRAL
@@ -80,20 +80,20 @@ void thin_film(float lambda, complex n[LAYERS], float d[LAYERS], complex cos_the
     T = (T_s + T_p) * 0.5;
 }
 
-void sample_interfaces(float lambda, float sin_theta_0, complex_xyz n_xyz[LAYERS], output complex n[LAYERS], output complex cos_theta[LAYERS])
+void sample_interfaces(float lambda, float sin_theta_0, IOR n_ior[LAYERS], output complex n[LAYERS], output complex cos_theta[LAYERS])
 {
-    n[0] =  sample_xyz(lambda, n_xyz[0]);
-    n[1] =  sample_xyz(lambda, n_xyz[1]);
-    n[2] =  sample_xyz(lambda, n_xyz[2]);
-    n[3] =  sample_xyz(lambda, n_xyz[3]);
-    n[4] =  sample_xyz(lambda, n_xyz[4]);
-    n[5] =  sample_xyz(lambda, n_xyz[5]);
-    n[6] =  sample_xyz(lambda, n_xyz[6]);
-    n[7] =  sample_xyz(lambda, n_xyz[7]);
-    n[8] =  sample_xyz(lambda, n_xyz[7]);
-    n[9] =  sample_xyz(lambda, n_xyz[7]);
-    n[10] = sample_xyz(lambda, n_xyz[7]);
-    n[11] = sample_xyz(lambda, n_xyz[7]);
+    n[0] =  sample_IOR(lambda, n_ior[0]);
+    n[1] =  sample_IOR(lambda, n_ior[1]);
+    n[2] =  sample_IOR(lambda, n_ior[2]);
+    n[3] =  sample_IOR(lambda, n_ior[3]);
+    n[4] =  sample_IOR(lambda, n_ior[4]);
+    n[5] =  sample_IOR(lambda, n_ior[5]);
+    n[6] =  sample_IOR(lambda, n_ior[6]);
+    n[7] =  sample_IOR(lambda, n_ior[7]);
+    n[8] =  sample_IOR(lambda, n_ior[7]);
+    n[9] =  sample_IOR(lambda, n_ior[7]);
+    n[10] = sample_IOR(lambda, n_ior[7]);
+    n[11] = sample_IOR(lambda, n_ior[7]);
 
     cos_theta[1] =  cos_theta_i(n[1],  n[0], sin_theta_0);
     cos_theta[2] =  cos_theta_i(n[2],  n[0], sin_theta_0);
@@ -168,21 +168,33 @@ output color T = color(0.0)
     d[10] = film_9_thickness;
     d[11] = INFINITE;
 
-    complex n[LAYERS]; complex_xyz n_xyz[LAYERS];
+    complex n[LAYERS]; IOR n_ior[LAYERS];
     complex cos_theta[LAYERS];
 
-    n_xyz[0] =  complex_xyz(RGB_to_XYZ(color(1.0)), RGB_to_XYZ(color(0.0)));
-    n_xyz[1] =  complex_xyz(RGB_to_XYZ(film_0_IOR), RGB_to_XYZ(absorption_0));
-    n_xyz[2] =  complex_xyz(RGB_to_XYZ(film_1_IOR), RGB_to_XYZ(absorption_1));
-    n_xyz[3] =  complex_xyz(RGB_to_XYZ(film_2_IOR), RGB_to_XYZ(absorption_2));
-    n_xyz[4] =  complex_xyz(RGB_to_XYZ(film_3_IOR), RGB_to_XYZ(absorption_3));
-    n_xyz[5] =  complex_xyz(RGB_to_XYZ(film_4_IOR), RGB_to_XYZ(absorption_4));
-    n_xyz[6] =  complex_xyz(RGB_to_XYZ(film_5_IOR), RGB_to_XYZ(absorption_5));
-    n_xyz[7] =  complex_xyz(RGB_to_XYZ(film_6_IOR), RGB_to_XYZ(absorption_6));
-    n_xyz[8] =  complex_xyz(RGB_to_XYZ(film_7_IOR), RGB_to_XYZ(absorption_7));
-    n_xyz[9] =  complex_xyz(RGB_to_XYZ(film_8_IOR), RGB_to_XYZ(absorption_8));
-    n_xyz[10] = complex_xyz(RGB_to_XYZ(film_9_IOR), RGB_to_XYZ(absorption_9));
-    n_xyz[11] = complex_xyz(RGB_to_XYZ(base_IOR),   RGB_to_XYZ(base_absorption));
+    color eta_0 = backfacing() ? 1.0/film_0_IOR : film_0_IOR;
+    color eta_1 = backfacing() ? 1.0/film_1_IOR : film_1_IOR;
+    color eta_2 = backfacing() ? 1.0/film_2_IOR : film_2_IOR;
+    color eta_3 = backfacing() ? 1.0/film_3_IOR : film_3_IOR;
+    color eta_4 = backfacing() ? 1.0/film_4_IOR : film_4_IOR;
+    color eta_5 = backfacing() ? 1.0/film_5_IOR : film_5_IOR;
+    color eta_6 = backfacing() ? 1.0/film_6_IOR : film_6_IOR;
+    color eta_7 = backfacing() ? 1.0/film_7_IOR : film_7_IOR;
+    color eta_8 = backfacing() ? 1.0/film_8_IOR : film_8_IOR;
+    color eta_9 = backfacing() ? 1.0/film_9_IOR : film_9_IOR;
+    color eta_10 = backfacing() ? 1.0/base_IOR : base_IOR;
+
+    n_ior[0] = IOR(color(1.0), color(0.0));
+    n_ior[1] = IOR(eta_0,      absorption_0);
+    n_ior[2] = IOR(eta_1,      absorption_1);
+    n_ior[3] = IOR(eta_2,      absorption_2);
+    n_ior[4] = IOR(eta_3,      absorption_3);
+    n_ior[5] = IOR(eta_4,      absorption_4);
+    n_ior[6] = IOR(eta_5,      absorption_4);
+    n_ior[7] = IOR(eta_6,      absorption_4);
+    n_ior[8] = IOR(eta_7,      absorption_4);
+    n_ior[9] = IOR(eta_8,      absorption_4);
+    n_ior[10] = IOR(eta_9,      absorption_4);
+    n_ior[11] = IOR(eta_10,      base_absorption);
 
     cos_theta[0] = complex(max(dot(Normal, Incident), 1e-6), 0.0);
     float sin_theta_0 = sqrt(1.0 - pow(cos_theta[0].r, 2.0));
@@ -195,7 +207,7 @@ output color T = color(0.0)
     float spec_T[LAMBDA_SAMPLES];
 
     for (int i = 0; i < LAMBDA_SAMPLES; i++) {
-        sample_interfaces(lambda_samples[i], sin_theta_0, n_xyz, n, cos_theta);
+        sample_interfaces(lambda_samples[i], sin_theta_0, n_ior, n, cos_theta);
         thin_film(lambda_samples[i], n, d, cos_theta, spec_R[i], spec_T[i]);
     }
 
@@ -205,13 +217,13 @@ output color T = color(0.0)
     R = rgb_R;
     T = rgb_T;
 #else
-    sample_interfaces(650.0, sin_theta_0, n_xyz, n, cos_theta);
+    sample_interfaces(650.0, sin_theta_0, n_ior, n, cos_theta);
     thin_film(650.0, n, d, cos_theta, R.r, T.r);
 
-    sample_interfaces(532.0, sin_theta_0, n_xyz, n, cos_theta);
+    sample_interfaces(532.0, sin_theta_0, n_ior, n, cos_theta);
     thin_film(532.0, n, d, cos_theta, R.g, T.g);
 
-    sample_interfaces(450.0, sin_theta_0, n_xyz, n, cos_theta);
+    sample_interfaces(450.0, sin_theta_0, n_ior, n, cos_theta);
     thin_film(450.0, n, d, cos_theta, R.b, T.b);
 #endif
 }

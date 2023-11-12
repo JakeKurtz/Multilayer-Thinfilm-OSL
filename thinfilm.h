@@ -78,7 +78,7 @@ void compute_polarization(
 
 complex cos_theta_i(complex n, complex n_0, float sin_theta_0)
 {
-    complex sin_theta = (conjugate(n) / pow(modulus(n), 2.0)) * n_0 * sin_theta_0;
+    complex sin_theta = (conjugate(n) / modulus_sqrd(n)) * n_0 * sin_theta_0;
     return sqrt(1.0 - pow(sin_theta, 2.0));
 }
 
@@ -91,13 +91,8 @@ cmatrix22 D_mat(complex r_ij, complex r_ji, complex t_ij, complex t_ji)
 }
 
 cmatrix22 P_mat(float lambda, complex ior, float d, complex cos_theta)
-{   
-    complex phi;
-    if (d >= INFINITE) {
-        phi = ior.r * cos_theta.r * complex(0.0, (M_2PI/lambda) * d);
-    } else {
-        phi = ior * cos_theta * complex(0.0, (M_2PI/lambda) * d);
-    }
+{ 
+    complex phi = ior * complex(0.0, cos_theta.r * (M_2PI/lambda) * d);
 
     return cmatrix22(
         exp(-phi), complex(0.0, 0.0),

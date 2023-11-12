@@ -26,6 +26,21 @@ struct matrix22
    float t10; float t11;
 };
  
+matrix22 matrix22_identity() 
+{
+    return matrix22(
+        1, 0,
+        0, 1
+    );
+}
+matrix22 matrix22_zero() 
+{
+    return matrix22(
+        0, 0,
+        0, 0
+    );
+}
+
 matrix22 inv(matrix22 m)
 {
     float denom = (m.t00*m.t11 - m.t01*m.t10);

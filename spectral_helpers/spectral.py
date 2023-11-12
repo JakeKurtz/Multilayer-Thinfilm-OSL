@@ -22,13 +22,13 @@
 from cie_colour_matching import *
 from math import *
 
-LAMBDA_SAMPLES = 1000
-LAMBDA_MIN = 380
-LAMBDA_MAX = 780
+LAMBDA_SAMPLES = 471
+LAMBDA_MIN = 360
+LAMBDA_MAX = 830
+
 LAMBDA_STEP = float(LAMBDA_MAX - LAMBDA_MIN) / float(LAMBDA_SAMPLES)
 
-CIE_Y_integral = 106.856895
-SCALE = float(LAMBDA_MAX - LAMBDA_MIN) / (float(LAMBDA_SAMPLES) * CIE_Y_integral)
+SCALE = float(LAMBDA_MAX - LAMBDA_MIN) / (float(LAMBDA_SAMPLES) * 98.89001062030664)
 
 def XYZ_to_RGB(xyz):
     r =  xyz[0]*3.240479 - xyz[1]*1.537150 - xyz[2]*0.498535
@@ -58,7 +58,7 @@ def SPEC_to_RGB(spec, lambda_samples):
     RGB[1] = min(max(RGB[1],0.0),1.0)
     RGB[2] = min(max(RGB[2],0.0),1.0)
     return RGB
-def SPEC_to_RGB2(l):
+def SPEC_to_RGB_lamb(l):
     cmf = CMF_to_XYZ(l)
     RGB = XYZ_to_RGB(cmf)
 
@@ -71,5 +71,7 @@ def SPEC_to_RGB2(l):
 def XYZ_coords(xyz):
     denom = xyz[0] + xyz[1] + xyz[2]
     return (xyz[0] / denom, xyz[1] / denom)
-
-print(XYZ_to_RGB([0.877739378068311, 0.9234787654138937, 1.0055102172340407]))
+def XYZ_coords_lamb(l):
+    xyz = CMF_to_XYZ(l)
+    denom = xyz[0] + xyz[1] + xyz[2]
+    return (xyz[0] / denom, xyz[1] / denom)

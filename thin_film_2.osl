@@ -20,7 +20,7 @@
 #include "spectral.h"
 #include "thinfilm.h"
 #include "complex.h"
-#include "complex_xyz.h"
+#include "ior.h"
 
 #define LAYERS 4
 #define SPECTRAL
@@ -51,13 +51,14 @@ void thin_film(float lambda, complex n[LAYERS], float d[LAYERS], complex cos_the
             n_j,   n_i,   ct_j,  ct_i,
             rp_ji, rs_ji, ts_ji, tp_ji
         );
-
+        
         cmatrix22 Ds_i = D_mat(rs_ij, rs_ji, ts_ij, ts_ji);
         cmatrix22 Dp_i = D_mat(rp_ij, rp_ji, tp_ij, tp_ji);
-        cmatrix22 P_i = P_mat(lambda, n_j, d[i+1], ct_j);
+        
+        cmatrix22 P_i = P_mat(lambda, n_i, d[i], ct_i);
 
-        Ts = Ts*Ds_i*P_i;
-        Tp = Tp*Dp_i*P_i;
+        Ts = Ts*P_i*Ds_i;
+        Tp = Tp*P_i*Dp_i;
     }
     
     complex r_s = Ts.t10 / Ts.t00;
@@ -80,12 +81,12 @@ void thin_film(float lambda, complex n[LAYERS], float d[LAYERS], complex cos_the
     T = (T_s + T_p) * 0.5;
 }
 
-void sample_interfaces(float lambda, float sin_theta_0, complex_xyz n_xyz[LAYERS], output complex n[LAYERS], output complex cos_theta[LAYERS])
+void sample_interfaces(float lambda, float sin_theta_0, IOR n_ior[LAYERS], output complex n[LAYERS], output complex cos_theta[LAYERS])
 {
-    n[0] = sample_xyz(lambda, n_xyz[0]);
-    n[1] = sample_xyz(lambda, n_xyz[1]);
-    n[2] = sample_xyz(lambda, n_xyz[2]);
-    n[3] = sample_xyz(lambda, n_xyz[3]);
+    n[0] = sample_IOR(lambda, n_ior[0]);
+    n[1] = sample_IOR(lambda, n_ior[1]);
+    n[2] = sample_IOR(lambda, n_ior[2]);
+    n[3] = sample_IOR(lambda, n_ior[3]);
 
     cos_theta[1] = cos_theta_i(n[1], n[0], sin_theta_0);
     cos_theta[2] = cos_theta_i(n[2], n[0], sin_theta_0);
@@ -123,13 +124,17 @@ output color T = color(0.0)
     d[2] = film_1_thickness;
     d[3] = INFINITE;
 
-    complex n[LAYERS]; complex_xyz n_xyz[LAYERS];
+    complex n[LAYERS]; IOR n_ior[LAYERS];
     complex cos_theta[LAYERS];
 
-    n_xyz[0] = complex_xyz(RGB_to_XYZ(color(1.0)), RGB_to_XYZ(color(0.0)));
-    n_xyz[1] = complex_xyz(RGB_to_XYZ(film_0_IOR), RGB_to_XYZ(absorption_0));
-    n_xyz[2] = complex_xyz(RGB_to_XYZ(film_1_IOR), RGB_to_XYZ(absorption_1));
-    n_xyz[3] = complex_xyz(RGB_to_XYZ(base_IOR),   RGB_to_XYZ(base_absorption));
+    color eta_0 = backfacing() ? 1.0/film_0_IOR : film_0_IOR;
+    color eta_1 = backfacing() ? 1.0/film_1_IOR : film_1_IOR;
+    color eta_2 = backfacing() ? 1.0/base_IOR : base_IOR;
+    
+    n_ior[0] = IOR(color(1.0), color(0.0));
+    n_ior[1] = IOR(eta_0,      absorption_0);
+    n_ior[2] = IOR(eta_1,      absorption_1);
+    n_ior[3] = IOR(eta_2,      base_absorption);
 
     cos_theta[0] = complex(max(dot(Normal, Incident), 1e-6), 0.0);
     float sin_theta_0 = sqrt(1.0 - pow(cos_theta[0].r, 2.0));
@@ -142,7 +147,7 @@ output color T = color(0.0)
     float spec_T[LAMBDA_SAMPLES];
 
     for (int i = 0; i < LAMBDA_SAMPLES; i++) {
-        sample_interfaces(lambda_samples[i], sin_theta_0, n_xyz, n, cos_theta);
+        sample_interfaces(lambda_samples[i], sin_theta_0, n_ior, n, cos_theta);
         thin_film(lambda_samples[i], n, d, cos_theta, spec_R[i], spec_T[i]);
     }
 
@@ -152,13 +157,13 @@ output color T = color(0.0)
     R = rgb_R;
     T = rgb_T;
 #else
-    sample_interfaces(650.0, sin_theta_0, n_xyz, n, cos_theta);
+    sample_interfaces(650.0, sin_theta_0, n_ior, n, cos_theta);
     thin_film(650.0, n, d, cos_theta, R.r, T.r);
 
-    sample_interfaces(532.0, sin_theta_0, n_xyz, n, cos_theta);
+    sample_interfaces(532.0, sin_theta_0, n_ior, n, cos_theta);
     thin_film(532.0, n, d, cos_theta, R.g, T.g);
 
-    sample_interfaces(450.0, sin_theta_0, n_xyz, n, cos_theta);
+    sample_interfaces(450.0, sin_theta_0, n_ior, n, cos_theta);
     thin_film(450.0, n, d, cos_theta, R.b, T.b);
 #endif
 }
