@@ -21,7 +21,9 @@
 #include "random.h"
 #pragma once
 
-#define LAMBDA_SAMPLES 50
+#define RGB_FIT_FAST
+
+#define LAMBDA_SAMPLES 10
 #define LAMBDA_MIN 380
 #define LAMBDA_MAX 780
 #define LAMBDA_STEP float(LAMBDA_MAX - LAMBDA_MIN) / float(LAMBDA_SAMPLES)
@@ -43,9 +45,15 @@ float gauss(float x, float a, float b, float c)
 float sigmoidal(float x,float a,float b,float c,float d) {
     return d + (a-d) / (1.0 + pow(x/c, b));
 }
+float sigmoidal(float x,float a,float b,float c) {
+    return a / (1.0 + exp(-b*(x-c)));
+}
 
 float rFit_Optimal(float l) 
 {
+    #ifdef RGB_FIT_FAST
+    return sigmoidal(l, 0.9742, 0.2231, 590.2785);
+    #else
     if ( l < 410) {
         return 0.028818291;
     } else if ( l > 410 and  l < 556) {
@@ -60,9 +68,14 @@ float rFit_Optimal(float l)
     } else {
         return 0.976087481;
     }
+    #endif
 }
 float gFit_Optimal(float l)
 {
+    #ifdef RGB_FIT_FAST
+    if (l < 545) return sigmoidal(l, 0.0123, 63.3450, 488.7451, 0.9711);
+    else return sigmoidal(l, 0.0127, -116.3503, 590.4987, 0.9699);
+    #else
     if ( l < 409) {
         return 0.011877002;
     } else if ( l > 409 and  l < 440) {
@@ -81,9 +94,13 @@ float gFit_Optimal(float l)
     } else {
         return 0.01268405;
     }
+    #endif
 }
 float bFit_Optimal(float l) 
 {
+    #ifdef RGB_FIT_FAST
+        return sigmoidal(l, 0.9622, -0.1542, 489.6339);
+    #else
     if ( l < 400) {
         return 0.959304707;
     } else if ( l > 400 and  l < 440) {
@@ -99,6 +116,7 @@ float bFit_Optimal(float l)
     } else {
         return 0.011228468;
     }
+    #endif
 }
 
 void lambda_hero(point p, output float lambda_samples[LAMBDA_SAMPLES])

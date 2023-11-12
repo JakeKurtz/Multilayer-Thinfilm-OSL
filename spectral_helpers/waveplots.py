@@ -102,7 +102,7 @@ def plot_srgb_optimal_rgb_components():
     plt.show()
 def plot_srgb_optimal_rgb_components_fit():
 
-    color = (1.0, 1.0, )
+    color = (1.0, 1.0, 1.0)
 
     wavelengths = [0] * LAMBDA_SAMPLES
 
@@ -116,9 +116,9 @@ def plot_srgb_optimal_rgb_components_fit():
 
         wavelengths[i] = _lambda
 
-        R_coords[i] = rFit_Optimal(_lambda)
-        G_coords[i] = gFit_Optimal(_lambda)
-        B_coords[i] = bFit_Optimal(_lambda)
+        R_coords[i] = rFit_Optimal_Fast(_lambda)
+        G_coords[i] = gFit_Optimal_Fast(_lambda)
+        B_coords[i] = bFit_Optimal_Fast(_lambda)
     
     plt.title("Optimal RGB Components")
 

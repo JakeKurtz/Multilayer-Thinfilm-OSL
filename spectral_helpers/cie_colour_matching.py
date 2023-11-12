@@ -39,14 +39,17 @@ CIE_OPTIMAL_B = [0.959304707,0.959304707,0.959304707,0.959304707,0.959304707,0.9
 def gauss(x, a, b, c):
     return a*exp(-pow((x-b)/c,2.0))
 
-def sigmoidal(x,a,b,c,d):
+def sigmoidal_4(x,a,b,c,d):
     return d + (a-d) / (1.0 + pow(x/c, b))
+
+def sigmoidal_3(x,a,b,c):
+    return a / (1.0 + exp(-b*(x-c)))
 
 def gFit_Optimal(wave):
     if (wave < 409):
         return 0.011877002
     elif (wave > 409 and wave < 440):
-        return sigmoidal(wave, 0.0118, 56.8665, 444.8670, 0.0196)
+        return sigmoidal_4(wave, 0.0118, 56.8665, 444.8670, 0.0196)
     elif (wave > 440 and wave < 482):
         return gauss(wave, 0.8477, 501.7479, 14.3983) + gauss(wave, 235.2388, 483.5420, 0.4566) + gauss(wave, 0.0821, 489.6808, 20.0566) + gauss(wave, 718.6786, 1.6779e+03, 376.8481)
     elif (wave > 482 and wave < 514):
@@ -83,12 +86,20 @@ def bFit_Optimal(wave):
     elif (wave > 440 and wave < 488):
         return gauss(wave, 0.9186, 431.7012, 39.4569) + gauss(wave, 0.2310, 479.3085, 13.5087) + gauss(wave, 0.4242, 467.5404, 21.5185) + gauss(wave, 0.0936, 484.5533, 8.6270 ) 
     elif (wave > 488 and wave < 530):
-        return sigmoidal(wave, 0.0236, -51.6, 450.733, 30.7708)
+        return sigmoidal_4(wave, 0.0236, -51.6, 450.733, 30.7708)
     elif (wave > 530 and wave < 620):
         w = wave * 0.0147
         return 0.1941 + 0.1777*cos(w) -0.1677*sin(w) -0.0008*cos(2*w) -0.0658*sin(2*w)
     else:
         return 0.011228468
+
+def rFit_Optimal_Fast(l):
+    return sigmoidal_3(l, 0.9742, 0.2231, 590.2785)
+def gFit_Optimal_Fast(l):
+    if (l < 545): return sigmoidal_4(l, 0.0123, 63.3450, 488.7451, 0.9711)
+    else: return sigmoidal_4(l, 0.0127, -116.3503, 590.4987, 0.9699)
+def bFit_Optimal_Fast(l):
+    return sigmoidal_3(l, 0.9622, -0.1542, 489.6339)
 
 def xFit_1931(wave):
     t1 = (wave-442.0)*(0.0624 if (wave < 442.0) else 0.0374)
