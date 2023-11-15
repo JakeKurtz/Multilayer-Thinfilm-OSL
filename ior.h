@@ -17,7 +17,6 @@
 *
 * ------------------------------------------------------------------------- */
 
-#include "spectral.h"
 #include "complex.h"
 #pragma once
 
@@ -29,11 +28,8 @@ struct IOR
 
 complex sample_IOR(float lambda, IOR ior)
 {
-    color n = ior.n;
-    color k = ior.k;
+    float n = RGB_to_SPEC(lambda, ior.n);
+    float k = RGB_to_SPEC(lambda, ior.k);
 
-    float _n = rFit_Optimal(lambda) * n.r + gFit_Optimal(lambda) * n.g + bFit_Optimal(lambda) * n.b;
-    float _k = rFit_Optimal(lambda) * k.r + gFit_Optimal(lambda) * k.g + bFit_Optimal(lambda) * k.b;
-
-    return complex(_n, _k);
+    return complex(n, k);
 }

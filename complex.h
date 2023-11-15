@@ -137,15 +137,7 @@ complex sqrt(complex c)
 complex exp(complex c)
 {
     complex ret;
-
-    // Edge case. Prevents overflow.
-    float x;
-    if (c.r > 20) {
-        x = 1e5;
-    } else {
-        x = exp(c.r);
-    }
-
+    float x = exp(c.r);
     ret.r = x * cos(c.i);
     ret.i = x * sin(c.i);
     return ret;

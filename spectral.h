@@ -18,12 +18,12 @@
 * ------------------------------------------------------------------------- */
 
 #include "stdosl.h"
-#include "random.h"
+#include "util.h"
 #pragma once
 
-#define RGB_FIT_FAST
+//#define RGB_FIT_FAST
 
-#define LAMBDA_SAMPLES 10
+#define LAMBDA_SAMPLES 20
 #define LAMBDA_MIN 380
 #define LAMBDA_MAX 780
 #define LAMBDA_STEP float(LAMBDA_MAX - LAMBDA_MIN) / float(LAMBDA_SAMPLES)
@@ -119,6 +119,56 @@ float bFit_Optimal(float l)
     #endif
 }
 
+float xFit_1931(float l)
+{
+    float t1 = (l-442.0)*((l < 442.0) ? 0.0624 : 0.0374);
+    float t2 = (l-599.8)*((l < 599.8) ? 0.0264 : 0.0323);
+    float t3 = (l-501.1)*((l < 501.1) ? 0.0490 : 0.0382);    
+    return 0.362*exp(-0.5*t1*t1) + 1.056*exp(-0.5*t2*t2)- 0.065*exp(-0.5*t3*t3);
+}
+float yFit_1931(float l)
+{
+    float t1 = (l-568.8)*((l<568.8) ? 0.0213 : 0.0247);
+    float t2 = (l-530.9)*((l<530.9) ? 0.0613 : 0.0322);    
+    return 0.821*exp(-0.5*t1*t1) + 0.286*exp(-0.5*t2*t2);
+}
+float zFit_1931(float l)
+{
+    float t1 = (l-437.0)*((l<437.0) ? 0.0845 : 0.0278);
+    float t2 = (l-459.0)*((l<459.0) ? 0.0385 : 0.0725);
+    return 1.217*exp(-0.5*t1*t1) + 0.681*exp(-0.5*t2*t2);
+}
+
+float xFit_1931_d65(float l) 
+{
+    return (
+        gauss(l,  326.8715, 616.7216, 42.4804) +
+        gauss(l, -0.0228,   630.2541, 6.6607) +
+        gauss(l, -326.1236, 616.7612, 42.4667) +
+        gauss(l,  0.2460,   555.7176, 28.5128) +
+        gauss(l,  0.3767,   448.9901, 26.9033)
+    );
+}
+float yFit_1931_d65(float l) 
+{
+    return (
+        gauss(l, -0.0802, 539.6412, 10.5921) +
+        gauss(l,  0.0265, 513.6007, 7.8271) +
+        gauss(l,  0.2188, 536.1920, 19.0960) +
+        gauss(l,  0.8864, 558.5629, 59.2164)
+    );
+}
+float zFit_1931_d65(float l)
+{
+    return (
+        gauss(l, -0.6069, 432.8603, 25.2712) +
+        gauss(l, -0.2151, 450.6189, 11.3996 ) +
+        gauss(l,  2.2501, 446.5326, 27.7470) +
+        gauss(l,  0.3825, 469.3564, 41.0695) +
+        gauss(l,  0.0766, 424.6047, 5.5661)
+    );
+}
+
 void lambda_hero(point p, output float lambda_samples[LAMBDA_SAMPLES])
 {
     float lambda_r = float(LAMBDA_MAX - LAMBDA_MIN);
@@ -131,7 +181,7 @@ void lambda_hero(point p, output float lambda_samples[LAMBDA_SAMPLES])
 void lambda_uniform(point p, output float lambda_samples[LAMBDA_SAMPLES])
 {
     for (int i = 0; i < LAMBDA_SAMPLES; i++) {
-        lambda_samples[i] = rand_range(LAMBDA_MIN, LAMBDA_MAX, p);
+        lambda_samples[i] = rand_range(LAMBDA_MIN, LAMBDA_MAX, p+vector(i));
     }
 }
 void lambda_fixed(point p, output float lambda_samples[LAMBDA_SAMPLES])
@@ -146,18 +196,9 @@ void gen_lambda_samples(point p, output float lambda_samples[LAMBDA_SAMPLES])
     lambda_hero(p, lambda_samples);
 }
 
-float gaussian(float x, float mu, float sigma)
-{
-    return 1.0 / (sigma * sqrt(2.0 * M_PI)) * exp(-(x-mu)*(x-mu)/(2.*sigma*sigma));
-}
-
 vector CMF_to_XYZ(float l)
 {
-	return vector(
-    	8233.3080 * gaussian(l, 593.949462640494, 34.00) + 1891.2652 * gaussian(l, 448.8951, 18.7851),
-        10522.6505 * gaussian(l, 555.3855, 40.7979),
-        11254.7819 * gaussian(l, 452.9834, 21.5712)
-    ) / 100.;
+   return vector(xFit_1931_d65(l), yFit_1931_d65(l), zFit_1931_d65(l));
 }
 
 vector XYZ_to_RGB(vector xyz)
@@ -173,17 +214,6 @@ vector RGB_to_XYZ(vector rgb)
     float y =  rgb.x*0.212671 + rgb.y*0.71516 + rgb.z*0.072169;
     float z =  rgb.x*0.019334 + rgb.y*0.11919 + rgb.z*0.950227;
     return vector(x, y, z);
-}
-
-vector SPEC_to_RGB2(float l) {
-    vector cmf = CMF_to_XYZ(l);
-    vector RGB = XYZ_to_RGB(cmf);
-
-    //RGB[0] = min(max(RGB[0],0.0),1.0);
-    //RGB[1] = min(max(RGB[1],0.0),1.0);
-    //RGB[2] = min(max(RGB[2],0.0),1.0);
-
-    return RGB;
 }
 
 vector SPEC_to_XYZ(float spec[LAMBDA_SAMPLES], float lamb_samples[LAMBDA_SAMPLES])
@@ -212,10 +242,13 @@ vector SPEC_to_RGB(float spec[LAMBDA_SAMPLES], float lamb_samples[LAMBDA_SAMPLES
 }
 vector SPEC_to_RGB(float lambda)
 {
-    vector XYZ = vector(0.0, 0.0, 0.0);
     vector cmf = CMF_to_XYZ(lambda);
-    vector RGB = XYZ_to_RGB(cmf);
-    return RGB;
+    return XYZ_to_RGB(cmf);
+}
+
+float RGB_to_SPEC(float lambda, vector rgb)
+{
+    return rgb.x * rFit_Optimal(lambda) + rgb.y * gFit_Optimal(lambda) + rgb.z * bFit_Optimal(lambda);
 }
 
 vector XYZ_coords(vector xyz) 

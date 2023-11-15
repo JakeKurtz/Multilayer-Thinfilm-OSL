@@ -21,10 +21,14 @@
 
 from cie_colour_matching import *
 from math import *
+import numpy as np
 
 LAMBDA_SAMPLES = 471
 LAMBDA_MIN = 360
 LAMBDA_MAX = 830
+
+#LAMBDA_MIN = 380
+#LAMBDA_MAX = 780
 
 LAMBDA_STEP = float(LAMBDA_MAX - LAMBDA_MIN) / float(LAMBDA_SAMPLES)
 
@@ -40,6 +44,11 @@ def RGB_to_XYZ(rgb):
     y =  rgb[0]*0.212671 + rgb[1]*0.71516 + rgb[2]*0.072169
     z =  rgb[0]*0.019334 + rgb[1]*0.11919 + rgb[2]*0.950227
     return [x, y, z]
+
+def RGB_to_SPEC(c, w):
+    #return c[0] * rFit_Optimal(w) + c[1] * gFit_Optimal(w) + c[2] * bFit_Optimal(w)
+    _w = int(float(round(w) - CIE_MIN) / CIE_STEP)
+    return c[0] * CIE_OPTIMAL_R[_w] + c[1] * CIE_OPTIMAL_G[_w] + c[2] * CIE_OPTIMAL_B[_w]
 
 def SPEC_to_RGB(spec, lambda_samples):
     XYZ = [0.0, 0.0, 0.0]
@@ -75,3 +84,18 @@ def XYZ_coords_lamb(l):
     xyz = CMF_to_XYZ(l)
     denom = xyz[0] + xyz[1] + xyz[2]
     return (xyz[0] / denom, xyz[1] / denom)
+
+def gen_lambda_samples():
+    lambda_samples = [0] * LAMBDA_SAMPLES
+    for i in range(LAMBDA_SAMPLES):
+        lambda_samples[i] = (LAMBDA_MIN + (i * LAMBDA_STEP))
+    return lambda_samples
+    '''
+    lambda_samples = [0] * LAMBDA_SAMPLES
+    lambda_r = float(LAMBDA_MAX - LAMBDA_MIN)
+    lambda_h = np.random.uniform(low=LAMBDA_MIN, high=LAMBDA_MAX)
+    for i in range(LAMBDA_SAMPLES):
+        x = (lambda_h - float(LAMBDA_MIN) + (float(i) / float(LAMBDA_SAMPLES)) * lambda_r)
+        lambda_samples[i] = np.mod(x, lambda_r) + float(LAMBDA_MIN)
+    return lambda_samples
+    '''

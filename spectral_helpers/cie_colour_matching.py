@@ -115,6 +115,19 @@ def zFit_1931(wave):
     t2 = (wave-459.0)*(0.0385 if (wave<459.0) else 0.0725)
     return 1.217*exp(-0.5*t1*t1) + 0.681*exp(-0.5*t2*t2)
 
+def xFit_1931_d65(wave):
+    return (
+        gauss(wave,  326.8715, 616.7216, 42.4804) +
+        gauss(wave, -0.0228,   630.2541, 6.6607) +
+        gauss(wave, -326.1236, 616.7612, 42.4667) +
+        gauss(wave, 0.2460, 555.7176, 28.5128) +
+        gauss(wave, 0.3767, 448.9901, 26.9033)
+    )
+def yFit_1931_d65(wave):
+    return gauss(wave, 0.9632, 555.2973, 57.6751)
+def zFit_1931_d65(wave):
+    return gauss(wave, 1.9585, 452.9419, 30.5319)
+
 def gaussian(x, mu, sigma):
     return 1.0 / (sigma * sqrt(2.0 * pi)) * exp(-(x-mu)*(x-mu)/(2.*sigma*sigma))
 
@@ -129,12 +142,14 @@ def CMF_to_XYZ_OG(w):
     return (CIE_X[_w], CIE_Y[_w], CIE_Z[_w])
 def CMF_to_XYZ_Fit(w):
     return (xFit_1931(w), yFit_1931(w), zFit_1931(w))
-def CMF_to_XYZ_Guass(l):
+def CMF_to_XYZ_Guass(w):
 	return (
-    	(8233.3080 * gaussian(l, 593.949462640494, 34.00) + 1891.2652 * gaussian(l, 448.8951, 18.7851)) / 100.,
-        (10522.6505 * gaussian(l, 555.3855, 40.7979)) / 100.,
-        (11254.7819 * gaussian(l, 452.9834, 21.5712)) / 100.
+    	(8233.3080 * gaussian(w, 593.949462640494, 34.00) + 1891.2652 * gaussian(w, 448.8951, 18.7851)) / CIE_Y_integral,
+        (10522.6505 * gaussian(w, 555.3855, 40.7979)) / CIE_Y_integral,
+        (11254.7819 * gaussian(w, 452.9834, 21.5712)) / CIE_Y_integral
     )
+def CMF_to_XYZ_D65(w):
+    return (xFit_1931_d65(w), yFit_1931_d65(w), zFit_1931_d65(w))
 
 def CMF_to_XYZ(w):
-    return CMF_to_XYZ_OG(w)
+    return CMF_to_XYZ_D65(w)

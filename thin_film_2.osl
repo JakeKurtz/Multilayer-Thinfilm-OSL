@@ -30,6 +30,8 @@ void thin_film(float lambda, complex n[LAYERS], float d[LAYERS], complex cos_the
     cmatrix22 Ts = identity();
     cmatrix22 Tp = identity();
 
+    float d_i;
+
     complex n_i; complex ct_i;
     complex n_j; complex ct_j;
 
@@ -40,25 +42,26 @@ void thin_film(float lambda, complex n[LAYERS], float d[LAYERS], complex cos_the
 
     for (int i = 0; i < LAYERS-1; i++) 
     {
+        d_i = d[i];
+
         n_i = n[i];   ct_i = cos_theta[i];
         n_j = n[i+1]; ct_j = cos_theta[i+1];
 
         compute_polarization(
             n_i,   n_j,   ct_i,  ct_j,
-            rp_ij, rs_ij, ts_ij, tp_ij
+            rp_ij, rs_ij, tp_ij, ts_ij
         );
         compute_polarization(
             n_j,   n_i,   ct_j,  ct_i,
-            rp_ji, rs_ji, ts_ji, tp_ji
+            rp_ji, rs_ji, tp_ji, ts_ji
         );
-        
-        cmatrix22 Ds_i = D_mat(rs_ij, rs_ji, ts_ij, ts_ji);
-        cmatrix22 Dp_i = D_mat(rp_ij, rp_ji, tp_ij, tp_ji);
-        
-        cmatrix22 P_i = P_mat(lambda, n_i, d[i], ct_i);
 
-        Ts = Ts*P_i*Ds_i;
-        Tp = Tp*P_i*Dp_i;
+        cmatrix22 Ds_ij = D_mat(rs_ij, rs_ji, ts_ij, ts_ji);
+        cmatrix22 Dp_ij = D_mat(rp_ij, rp_ji, tp_ij, tp_ji);
+        cmatrix22 P_i = P_mat(lambda, n_i, d_i, ct_i);
+
+        Ts = Ts*P_i*Ds_ij;
+        Tp = Tp*P_i*Dp_ij;
     }
     
     complex r_s = Ts.t10 / Ts.t00;
@@ -81,12 +84,12 @@ void thin_film(float lambda, complex n[LAYERS], float d[LAYERS], complex cos_the
     T = (T_s + T_p) * 0.5;
 }
 
-void sample_interfaces(float lambda, float sin_theta_0, IOR n_ior[LAYERS], output complex n[LAYERS], output complex cos_theta[LAYERS])
+void sample_interfaces(float lambda, float sin_theta_0, IOR ior[LAYERS], output complex n[LAYERS], output complex cos_theta[LAYERS])
 {
-    n[0] = sample_IOR(lambda, n_ior[0]);
-    n[1] = sample_IOR(lambda, n_ior[1]);
-    n[2] = sample_IOR(lambda, n_ior[2]);
-    n[3] = sample_IOR(lambda, n_ior[3]);
+    n[0] = sample_IOR(lambda, ior[0]);
+    n[1] = sample_IOR(lambda, ior[1]);
+    n[2] = sample_IOR(lambda, ior[2]);
+    n[3] = sample_IOR(lambda, ior[3]);
 
     cos_theta[1] = cos_theta_i(n[1], n[0], sin_theta_0);
     cos_theta[2] = cos_theta_i(n[2], n[0], sin_theta_0);
@@ -95,48 +98,132 @@ void sample_interfaces(float lambda, float sin_theta_0, IOR n_ior[LAYERS], outpu
 
 shader ThinFilm
 (
-color film_0_IOR = 1.475
-[[ string label = "Film 1 IOR"]],
-color film_1_IOR = 1.475
-[[ string label = "Film 2 IOR"]],
-color absorption_0 = 0.0
-[[ string label = "Absorption 1"]],
-color absorption_1 = 0.0
-[[ string label = "Absorption 2"]],
-float film_0_thickness = 500.0
-[[ string label = "Film 1 Thickness"]],
-float film_1_thickness = 500.0
-[[ string label = "Film 2 Thickness"]],
-color base_IOR = 1.5
-[[ string label = "Base IOR"]],
-color base_absorption = 0.0
-[[ string label = "Base Absorption"]],
-normal Normal = N,
-vector Incident = I,
-output color R = color(1.0),
-output color T = color(0.0)
+/* -------------------------------------------------------------------------- */
+/*                                   Inputs                                   */
+/* -------------------------------------------------------------------------- */
+
+    /* --------------------------------- Film 0 --------------------------------- */
+
+    color film_0_n = 1.475
+    [[ 
+        string help = "",
+        string label = "Film 0 IOR",
+        color min = 0,
+        color max = 25
+    ]],
+    
+    color film_0_k = 0.0
+    [[ 
+        string help = "",
+        string label = "Film 0 Extinction",
+        color min = 0,
+        color max = 1
+    ]],
+    
+    float film_0_d = 500.0
+    [[ 
+        string help = "",
+        string label = "Film 0 Thickness",
+        float min = 0,
+        float max = 5000
+    ]],
+
+    /* --------------------------------- Film 1 --------------------------------- */
+
+    color film_1_n = 1.475
+    [[ 
+        string help = "",
+        string label = "Film 1 IOR",
+        color min = 0,
+        color max = 25
+    ]],
+    
+    color film_1_k = 0.0
+    [[ 
+        string help = "",
+        string label = "Film 1 Extinction",
+        color min = 0,
+        color max = 1
+    ]],
+    
+    float film_1_d = 500.0
+    [[ 
+        string help = "",
+        string label = "Film 1 Thickness",
+        float min = 0,
+        float max = 5000
+    ]],
+
+    /* ---------------------------------- Base ---------------------------------- */
+    
+    color base_n = 1.5
+    [[ 
+        string help = "",
+        string label = "Base IOR",
+        color min = 0,
+        color max = 25
+    ]],
+    
+    color base_k = 0.0
+    [[ 
+        string help = "",
+        string label = "Base Extinction",
+        color min = 0,
+        color max = 1
+    ]],
+    
+    float r = 0.0
+    [[ 
+        string help = "",
+        string label = "Roughness",
+        float min = 0.0,
+        float max = 1.0
+    ]],
+
+    normal Normal = N
+    [[ 
+        string label = "Normal"
+    ]],
+
+/* -------------------------------------------------------------------------- */
+/*                                   Outputs                                  */
+/* -------------------------------------------------------------------------- */
+
+    output color R = color(1.0)
+    [[
+		string help = ""
+	]],
+
+    output color T = color(0.0)
+    [[
+		string help = ""
+	]]
 )
 {
     float d[LAYERS];
 
     d[0] = INFINITE;
-    d[1] = film_0_thickness;
-    d[2] = film_1_thickness;
+    d[1] = film_0_d;
+    d[2] = film_1_d;
     d[3] = INFINITE;
 
-    complex n[LAYERS]; IOR n_ior[LAYERS];
+    complex n[LAYERS]; IOR ior[LAYERS];
     complex cos_theta[LAYERS];
 
-    color eta_0 = backfacing() ? 1.0/film_0_IOR : film_0_IOR;
-    color eta_1 = backfacing() ? 1.0/film_1_IOR : film_1_IOR;
-    color eta_2 = backfacing() ? 1.0/base_IOR : base_IOR;
+    color eta_0 = backfacing() ? 1.0/film_0_n : film_0_n;
+    color eta_1 = backfacing() ? 1.0/film_1_n : film_1_n;
+    color eta_2 = backfacing() ? 1.0/base_n : base_n;
     
-    n_ior[0] = IOR(color(1.0), color(0.0));
-    n_ior[1] = IOR(eta_0,      absorption_0);
-    n_ior[2] = IOR(eta_1,      absorption_1);
-    n_ior[3] = IOR(eta_2,      base_absorption);
+    ior[0] = IOR(color(1.0), color(0.0));
+    ior[1] = IOR(eta_0,      film_0_k);
+    ior[2] = IOR(eta_1,      film_1_k);
+    ior[3] = IOR(eta_2,      base_k);
 
-    cos_theta[0] = complex(max(dot(Normal, Incident), 1e-6), 0.0);
+    vector wo = I;
+    vector wi = sample_wi(r, wo, Normal, P);
+    vector h = normalize(wo + wi);
+
+    cos_theta[0] = complex(max(dot(h, wo), EPSILON), 0.0);
     float sin_theta_0 = sqrt(1.0 - pow(cos_theta[0].r, 2.0));
 
 #ifdef SPECTRAL
@@ -147,7 +234,7 @@ output color T = color(0.0)
     float spec_T[LAMBDA_SAMPLES];
 
     for (int i = 0; i < LAMBDA_SAMPLES; i++) {
-        sample_interfaces(lambda_samples[i], sin_theta_0, n_ior, n, cos_theta);
+        sample_interfaces(lambda_samples[i], sin_theta_0, ior, n, cos_theta);
         thin_film(lambda_samples[i], n, d, cos_theta, spec_R[i], spec_T[i]);
     }
 
@@ -157,13 +244,17 @@ output color T = color(0.0)
     R = rgb_R;
     T = rgb_T;
 #else
-    sample_interfaces(650.0, sin_theta_0, n_ior, n, cos_theta);
-    thin_film(650.0, n, d, cos_theta, R.r, T.r);
+    float lambda_samples[3] = {650.0, 532.0, 450.0};
 
-    sample_interfaces(532.0, sin_theta_0, n_ior, n, cos_theta);
-    thin_film(532.0, n, d, cos_theta, R.g, T.g);
+    float spec_R[3];
+    float spec_T[3];
 
-    sample_interfaces(450.0, sin_theta_0, n_ior, n, cos_theta);
-    thin_film(450.0, n, d, cos_theta, R.b, T.b);
+    for (int i = 0; i < 3; i++) {
+        sample_interfaces(lambda_samples[i], sin_theta_0, ior, n, cos_theta);
+        thin_film(lambda_samples[i], n, d, cos_theta, spec_R[i], spec_T[i]);
+    }
+
+    R = color(spec_R[0], spec_R[1], spec_R[2]);
+    T = color(spec_T[0], spec_T[1], spec_T[2]);
 #endif
 }

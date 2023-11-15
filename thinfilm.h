@@ -19,8 +19,7 @@
 
 #include "complex.h"
 #include "cmatrix22.h"
-
-#define INFINITE 1e31
+#pragma once
 
 /* The Reflectance for p-polarized light */
 complex rp(complex n_m, complex n_l, complex cos_theta_m, complex cos_theta_l)
@@ -56,8 +55,8 @@ void compute_polarization(
     complex n_m, complex n_l, complex cos_theta_m, complex cos_theta_l,
     output complex rp, 
     output complex rs, 
-    output complex ts, 
-    output complex tp) 
+    output complex tp, 
+    output complex ts) 
 {
     complex a = n_m*cos_theta_m;
     complex b = n_m*cos_theta_l;
