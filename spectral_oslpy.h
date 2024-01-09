@@ -23,7 +23,9 @@
 
 //#define RGB_FIT_FAST
 
-#define LAMBDA_SAMPLES 6
+#define ARRAY_SIZE 2
+
+#define LAMBDA_SAMPLES ARRAY_SIZE * 3
 #define LAMBDA_MIN 380
 #define LAMBDA_MAX 780
 #define LAMBDA_STEP float(LAMBDA_MAX - LAMBDA_MIN) / float(LAMBDA_SAMPLES)
@@ -31,14 +33,15 @@
 #define CIE_Y_integral 106.85691710117203
 #define CONSTANT_K 98.8900310736909
 
-#define CIE_Y_integral_x_SQRT_2PI 267.850569742
-
 #define D65     vector(0.31272, 0.32903, 0.0)
 #define VIOLET  vector(0.17556, 0.00529, 0.0)
 
-#define SCALE float(LAMBDA_MAX - LAMBDA_MIN) / float(LAMBDA_SAMPLES * CIE_Y_integral)
+#define SCALE 0.6238872360836 // (LAMBDA_MAX - LAMBDA_MIN) / (LAMBDA_SAMPLES * CIE_Y_integral)
 
 #define CIE_D65 vector(0.877739378068311, 0.9234787654138937, 1.0055102172340407)
+
+#define M_SQRT_2PI 2.5066282746
+#define CIE_Y_integral_x_SQRT_2PI 267.850569742
 
 float gauss(float x, float a, float b, float c)
 {
@@ -175,6 +178,7 @@ float gaussian(float x, float mu, float sigma)
 {
     return exp(-0.5*pow((x-mu)/(sigma),2.0)) / (sigma);
 }
+
 vector gaussian_fit(float w)
 {
     return vector(
@@ -184,77 +188,55 @@ vector gaussian_fit(float w)
     ) / (CIE_Y_integral_x_SQRT_2PI);
 }
 
-void lambda_hero(point p, output float lambda_samples[LAMBDA_SAMPLES])
+void gen_lambda_samples(point p, output vector lambda_samples[ARRAY_SIZE])
 {
-    float lambda_r = float(LAMBDA_MAX - LAMBDA_MIN);
     float lambda_h = rand_range(LAMBDA_MIN, LAMBDA_MAX, p);
-    for(int i = 0; i < LAMBDA_SAMPLES; i++) {
-        float x = (lambda_h - float(LAMBDA_MIN) + (float(i) / float(LAMBDA_SAMPLES)) * lambda_r);
-        lambda_samples[i] = mod(x, lambda_r) + float(LAMBDA_MIN);
+    {
+        vector x = (lambda_h - vector(152000.0, 152066.64, 152133.32));
+        lambda_samples[0] = mod(x, 400.0) + float(LAMBDA_MIN);
+    }{
+        vector x = (lambda_h - vector(152200.0, 152266.64, 152333.32));
+        lambda_samples[1] = mod(x, 400.0) + float(LAMBDA_MIN);
     }
-}
-void lambda_uniform(point p, output float lambda_samples[LAMBDA_SAMPLES])
-{
-    for (int i = 0; i < LAMBDA_SAMPLES; i++) {
-        lambda_samples[i] = rand_range(LAMBDA_MIN, LAMBDA_MAX, p+vector(i));
-    }
-}
-void lambda_fixed(point p, output float lambda_samples[LAMBDA_SAMPLES])
-{
-    for (int i = 0; i < LAMBDA_SAMPLES; i++) {
-        lambda_samples[i] = (LAMBDA_MIN + (i * LAMBDA_STEP));
-    }
-}
-
-void gen_lambda_samples(point p, output float lambda_samples[LAMBDA_SAMPLES])
-{
-    lambda_hero(p, lambda_samples);
 }
 
 vector XYZ_to_sRGB(vector xyz)
 {
-    float r =  xyz.x*3.2404542 - xyz.y*1.5371385 - xyz.z*0.4985314;
-    float g = -xyz.x*0.9692660 + xyz.y*1.8760108 + xyz.z*0.0415560;
-    float b =  xyz.x*0.0556434 - xyz.y*0.2040259 + xyz.z*1.0572252;
-    return vector(r, g, b);
+    vector a = xyz.x * vector( 3.240479, -0.969256,  0.055648);
+    vector b = xyz.y * vector(-1.537150,  1.875991, -0.204043);
+    vector c = xyz.z * vector(-0.498535,  0.041556,  1.057311);
+    return a+b+c;
 }
 vector sRGB_to_XYZ(vector rgb)
 {
-    float x =  rgb.x*0.4124564 + rgb.y*0.3575761 + rgb.z*0.1804375;
-    float y =  rgb.x*0.2126729 + rgb.y*0.7151522 + rgb.z*0.0721750;
-    float z =  rgb.x*0.0193339 + rgb.y*0.1191920 + rgb.z*0.9503041;
-    return vector(x, y, z);
+    vector a = rgb.x * vector( 0.412453, 0.212671, 0.019334);
+    vector b = rgb.y * vector( 0.35758,  0.71516,  0.11919);
+    vector c = rgb.z * vector( 0.180423, 0.072169, 0.950227);
+    return a+b+c;
 }
 
 vector CMF_to_XYZ(float l)
 {
-    return vector(xFit_1931_d65(l), yFit_1931_d65(l), zFit_1931_d65(l));
+    return gaussian_fit(l);
 }
 
-vector SPEC_to_XYZ(float spec[LAMBDA_SAMPLES], float lamb_samples[LAMBDA_SAMPLES])
+vector SPEC_to_sRGB(vector spec[ARRAY_SIZE], vector lamb_samples[ARRAY_SIZE])
 {
     vector XYZ = vector(0.0, 0.0, 0.0);
-    for (int i = 0; i < LAMBDA_SAMPLES; i++) {
-        vector cmf = CMF_to_XYZ(lamb_samples[i]);
-        XYZ += cmf * spec[i];
+    {
+        XYZ += CMF_to_XYZ(lamb_samples[0].x) * spec[0].x;
+        XYZ += CMF_to_XYZ(lamb_samples[0].y) * spec[0].y;
+        XYZ += CMF_to_XYZ(lamb_samples[0].z) * spec[0].z;
+    }{
+        XYZ += CMF_to_XYZ(lamb_samples[1].x) * spec[1].x;
+        XYZ += CMF_to_XYZ(lamb_samples[1].y) * spec[1].y;
+        XYZ += CMF_to_XYZ(lamb_samples[1].z) * spec[1].z;
     }
-    return XYZ * SCALE;
-}
-
-vector SPEC_to_sRGB(float spec[LAMBDA_SAMPLES], float lamb_samples[LAMBDA_SAMPLES])
-{
-    vector XYZ = vector(0.0, 0.0, 0.0);
-    for (int i = 0; i < LAMBDA_SAMPLES; i++) {
-        vector cmf = CMF_to_XYZ(lamb_samples[i]);
-        XYZ += cmf * spec[i];
-    }
-    vector RGB = XYZ_to_sRGB(XYZ * SCALE);
-    return RGB;
+    return XYZ_to_sRGB(XYZ * SCALE);
 }
 vector SPEC_to_sRGB(float lambda)
 {
-    vector cmf = CMF_to_XYZ(lambda);
-    return XYZ_to_sRGB(cmf);
+    return XYZ_to_sRGB(CMF_to_XYZ(lambda));
 }
 
 float sRGB_to_SPEC(float lambda, vector rgb)

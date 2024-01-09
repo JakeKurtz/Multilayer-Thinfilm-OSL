@@ -51,7 +51,7 @@ complex ts(complex n_m, complex n_l, complex cos_theta_m, complex cos_theta_l)
         n_m*cos_theta_m + n_l*cos_theta_l);
 }
 
-void compute_polarization(
+void compute_fresnel(
     complex n_m, complex n_l, complex cos_theta_m, complex cos_theta_l,
     output complex rp, 
     output complex rs, 

@@ -91,18 +91,20 @@ float rng_uniform(output int rng)
 
 float rand_range(float start, float end, vector p)
 {
-    return (end-start)*hashnoise(p) + start;
+  vector hash = hashnoise(p);
+  return (end-start)*hash.x + start;
 }
 
 float rand(float mu, float var, vector p)
 {
-  float u = hashnoise(p);
-  float r = sqrt(-2.0 * log(u));
-  float t = M_2PI * u;
+  float u1 = hashnoise(p);
+  float u2 = hashnoise(p+vector(u1));
+  float r = sqrt(-2.0 * log(u2));
+  float t = M_2PI * u2;
 
   float x = r * cos(t);
 
-  return sqrt(var) * t + mu;
+  return sqrt(var) * x + mu;
 }
 
 /* ----------------------------------- 3D ----------------------------------- */
@@ -120,26 +122,80 @@ void basis(vector n, output vector xp, output vector yp)
   yp = vector(c, 1.0-b, -n.y);
 }
 
-vector sample_wi(float r, vector wo, vector N, point P) {
-	float a2 = r * r * r * r;
+void ggx_anisotropic(float au, float av, vector wo, vector N, vector LN, vector T, point P, output vector wi, output vector lamella_wi) 
+{
+  vector hash = hashnoise(P);
 
-	float e0 = rand_range(0.0, 1.0, N);
-	float e1 = rand_range(0.0, 1.0, N+vector(1));
+  float e0 = hash.x;
+  float e1 = hash.y;
 
-	float theta = acos(sqrt((1.0 - e0) / (e0 * (a2 - 1.0) + 1.0)));
-	float phi = M_2PI * e1;
-	
-	vector h = vector(
-	    sin(theta) * cos(phi),
-		cos(theta),
-		sin(theta) * sin(phi)
-	);
+  float bar = 0;
 
-    normal T, B;
-    basis(N, T, B);
+  if (e0 > 0.0 && e0 < .25) bar = 0.0;
+  else if (e0 > .25 && e0 < .75) bar = M_PI;
+  else if (e0 >= .75 && e0 <= 1.0) bar = M_2PI;
 
-	vector sample = normalize(T * h.x + N * h.y + B * h.z);
-	vector wi = normalize(reflect(-wo, sample));
+  float phi =  atan((av/au) * tan(M_2PI * e0)) + bar;
+  float A_phi = pow(cos(phi)/au, 2.0) + pow(sin(phi)/av, 2.0);
 
-	return wi;
+  float theta = atan(sqrt(-log(e1) / A_phi));
+
+  vector h = vector(
+    sin(theta) * cos(phi),
+    cos(theta),
+    sin(theta) * sin(phi)
+  );
+
+  vector B = cross(N,T);
+
+  vector sample = normalize(T*h.x + N*h.y + B*h.z);
+
+  vector sample_l = sample;
+
+  if (N != LN) {
+    vector LB, LT;
+    basis(LN, LB, LT);
+    sample_l = normalize(LT*h.x + LN*h.y + LB*h.z);
+  }
+
+  wi = reflect(-wo, sample);
+  lamella_wi = reflect(-wo, sample_l);
+}
+
+vector ggx(float a, vector wo, vector N, point P) {
+  float a2 = a*a;
+
+  vector hash = hashnoise(P);
+
+  float e0 = hash.x;
+  float e1 = hash.y;
+
+  float theta = acos(sqrt((1.0 - e0) / (e0 * (a2 - 1.0) + 1.0)));
+  float phi = M_2PI * e1;
+
+  vector h = vector(
+    sin(theta) * cos(phi),
+    cos(theta),
+    sin(theta) * sin(phi)
+  );
+
+  normal T, B;
+  basis(N, T, B);
+
+  vector sample = normalize(T*h.x + N*h.y + B*h.z);
+  vector wi = normalize(reflect(-wo, sample));
+
+  return wi;
+}
+
+vector sample_wi(float alpha, vector wo, vector N, point P) 
+{
+  return ggx(alpha, wo, N, P);
+}
+
+void sample_wi(float alpha, float anisotropy, float rotation, vector wo, vector N, vector LN, vector T, point P, output vector wi, output vector lamella_wi) 
+{
+  float alpha_x = max(alpha * alpha * (1.0 + anisotropy), 0.001);
+  float alpha_y = max(alpha * alpha * (1.0 - anisotropy), 0.001);
+  ggx_anisotropic(alpha_x, alpha_y, wo, N, LN, T, P, wi, lamella_wi);
 }

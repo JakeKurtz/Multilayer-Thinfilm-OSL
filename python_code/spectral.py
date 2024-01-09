@@ -27,30 +27,27 @@ LAMBDA_SAMPLES = 471
 LAMBDA_MIN = 360
 LAMBDA_MAX = 830
 
-#LAMBDA_MIN = 380
-#LAMBDA_MAX = 780
-
 LAMBDA_STEP = float(LAMBDA_MAX - LAMBDA_MIN) / float(LAMBDA_SAMPLES)
 
 SCALE = float(LAMBDA_MAX - LAMBDA_MIN) / (float(LAMBDA_SAMPLES) * 98.89001062030664)
 
-def XYZ_to_RGB(xyz):
+def XYZ_to_sRGB(xyz):
     r =  xyz[0]*3.240479 - xyz[1]*1.537150 - xyz[2]*0.498535
     g = -xyz[0]*0.969256 + xyz[1]*1.875991 + xyz[2]*0.041556
     b =  xyz[0]*0.055648 - xyz[1]*0.204043 + xyz[2]*1.057311
     return [r, g, b]
-def RGB_to_XYZ(rgb):
+def sRGB_to_XYZ(rgb):
     x =  rgb[0]*0.412453 + rgb[1]*0.35758 + rgb[2]*0.180423
     y =  rgb[0]*0.212671 + rgb[1]*0.71516 + rgb[2]*0.072169
     z =  rgb[0]*0.019334 + rgb[1]*0.11919 + rgb[2]*0.950227
     return [x, y, z]
 
-def RGB_to_SPEC(c, w):
+def sRGB_to_SPEC(c, w):
     #return c[0] * rFit_Optimal(w) + c[1] * gFit_Optimal(w) + c[2] * bFit_Optimal(w)
     _w = int(float(round(w) - CIE_MIN) / CIE_STEP)
     return c[0] * CIE_OPTIMAL_R[_w] + c[1] * CIE_OPTIMAL_G[_w] + c[2] * CIE_OPTIMAL_B[_w]
 
-def SPEC_to_RGB(spec, lambda_samples):
+def SPEC_to_sRGB(spec, lambda_samples):
     XYZ = [0.0, 0.0, 0.0]
     for i in range(LAMBDA_SAMPLES):
         cmf = CMF_to_XYZ(lambda_samples[i])
@@ -62,14 +59,14 @@ def SPEC_to_RGB(spec, lambda_samples):
     XYZ[1] = XYZ[1] * SCALE
     XYZ[2] = XYZ[2] * SCALE 
 
-    RGB = XYZ_to_RGB(XYZ)
+    RGB = XYZ_to_sRGB(XYZ)
     RGB[0] = min(max(RGB[0],0.0),1.0)
     RGB[1] = min(max(RGB[1],0.0),1.0)
     RGB[2] = min(max(RGB[2],0.0),1.0)
     return RGB
-def SPEC_to_RGB_lamb(l):
+def SPEC_to_sRGB_lamb(l):
     cmf = CMF_to_XYZ(l)
-    RGB = XYZ_to_RGB(cmf)
+    RGB = XYZ_to_sRGB(cmf)
 
     RGB[0] = min(max(RGB[0],0.0),1.0)
     RGB[1] = min(max(RGB[1],0.0),1.0)

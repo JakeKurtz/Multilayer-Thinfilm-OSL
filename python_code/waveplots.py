@@ -21,7 +21,7 @@ from math import *
 import matplotlib.pyplot as plt
 import numpy as np
 
-from spectral import *
+from spectral import * 
 
 def plot_cie_color_matching_funcs():
     wavelengths = [0] * LAMBDA_SAMPLES
@@ -39,7 +39,7 @@ def plot_cie_color_matching_funcs():
     for i in range(LAMBDA_SAMPLES):
 
         _lambda = (LAMBDA_MIN + (i * LAMBDA_STEP))
-        xyz = CMF_to_XYZ_D65(_lambda)
+        xyz = CMF_to_XYZ_Fit(_lambda)
 
         wavelengths[i] = _lambda
 
@@ -59,13 +59,13 @@ def plot_cie_color_matching_funcs():
     plt.title("CIE Color Matching Functions")
 
     plt.plot(wavelengths, X_coords, 'red', label=r'$\bar{x}(\lambda)$')
-    #plt.plot(wavelengths, Y_coords, 'lime', label=r'$\bar{y}(\lambda)$')
-    #plt.plot(wavelengths, Z_coords, 'blue', label=r'$\bar{z}(\lambda)$')
+    plt.plot(wavelengths, Y_coords, 'lime', label=r'$\bar{y}(\lambda)$')
+    plt.plot(wavelengths, Z_coords, 'blue', label=r'$\bar{z}(\lambda)$')
 
     plt.plot(wavelengths, Xp_coords, 'red', label=r'$\bar{x}(\lambda)$')
-    #plt.plot(wavelengths, Yp_coords, 'lime', label=r'$\bar{y}(\lambda)$')
-    #plt.plot(wavelengths, Zp_coords, 'blue', label=r'$\bar{z}(\lambda)$')
-    #plt.plot(wavelengths, D65_coords, 'black', label=r'$D65(\lambda)$')
+    plt.plot(wavelengths, Yp_coords, 'lime', label=r'$\bar{y}(\lambda)$')
+    plt.plot(wavelengths, Zp_coords, 'blue', label=r'$\bar{z}(\lambda)$')
+    plt.plot(wavelengths, D65_coords, 'black', label=r'$D65(\lambda)$')
 
     plt.xlabel(r'$\lambda/nm$')
 
@@ -84,7 +84,7 @@ def plot_srgb_color_matching_funcs():
         _lambda = (LAMBDA_MIN + (i * LAMBDA_STEP))
 
         xyz = np.array(CMF_to_XYZ(_lambda)) * (D65(_lambda)/CIE_Y_integral)
-        rgb = XYZ_to_RGB(xyz * SCALE)
+        rgb = XYZ_to_sRGB(xyz * SCALE)
 
         wavelengths[i] = _lambda
 
@@ -116,9 +116,7 @@ def plot_srgb_optimal_rgb_components():
 
     plt.show()
 def plot_srgb_optimal_rgb_components_fit():
-
-    color = (1.0, 1.0, 1.0)
-
+    
     wavelengths = [0] * LAMBDA_SAMPLES
 
     R_coords = [0] * LAMBDA_SAMPLES
@@ -151,36 +149,4 @@ def plot_srgb_optimal_rgb_components_fit():
 
     plt.show()
 
-def blahblah():
-
-    color_0 = (1.0, 0.5, 1.0)
-    color_1 = (1.0, 1.0, 0.5)
-    color_2 = (0.5, 1.0, 1.0)
-
-    wavelengths = [0] * LAMBDA_SAMPLES
-
-    color_0_coords = [0] * LAMBDA_SAMPLES
-    color_1_coords = [0] * LAMBDA_SAMPLES
-    color_2_coords = [0] * LAMBDA_SAMPLES
-
-    for i in range(LAMBDA_SAMPLES):
-
-        _lambda = (LAMBDA_MIN + (i * LAMBDA_STEP))
-
-        wavelengths[i] = _lambda
-
-        color_0_coords[i] = RGB_to_SPEC(color_0, _lambda)
-        color_1_coords[i] = RGB_to_SPEC(color_1, _lambda)
-        color_2_coords[i] = RGB_to_SPEC(color_2, _lambda)
-
-    plt.plot(wavelengths, color_0_coords, 'magenta', label=r'$Color 0$')
-    plt.plot(wavelengths, color_1_coords, 'black', label=r'$Color 1$')
-    plt.plot(wavelengths, color_2_coords, 'purple', label=r'$Color 2$')
-
-    plt.xlabel(r'$\lambda/nm$')
-
-    plt.legend(loc='upper right')
-
-    plt.show()
-
-plot_cie_color_matching_funcs()
+plot_srgb_optimal_rgb_components_fit()

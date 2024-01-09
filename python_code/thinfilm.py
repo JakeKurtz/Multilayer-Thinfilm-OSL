@@ -20,12 +20,38 @@
 
 import cmath
 import math
+import cmath
 import numpy as np
+
+from ior import IOR, sample_IOR
+from spectral import *
+from box_muller import rand
+
+from dataclasses import dataclass
+
+@dataclass
+class Film:
+    d: float # Thickness (nm)
+    v: float # Variance (nm)
+    ior: IOR # Index of Refraction
+
+    cos_theta_0: complex
+    ior_0: IOR
+
+    def sample(self, wavelength):
+        n = sample_IOR(wavelength, self.ior)
+        n_0 = sample_IOR(wavelength, self.ior_0)
+
+        cos_theta = cos_theta_i(n_0, n, self.cos_theta_0)
+        d = d_i(self.d, self.v)
+
+        return n, cos_theta, d
 
 def conjugate(c):
     return complex(c.real, -c.imag)
 
 def modulus_sqrd(c):
+    #return cmath.sqrt(conjugate(c) * c)
     return c.real*c.real + c.imag*c.imag
 
 # The Reflectance for p-polarized light #
@@ -50,7 +76,7 @@ def ts(n_m, n_l, cos_theta_m, cos_theta_l):
     return 2.0*n_m*cos_theta_m / (
         n_m*cos_theta_m + n_l*cos_theta_l)
 
-def compute_polarization(n_m, n_l, cos_theta_m, cos_theta_l,):
+def fresnel(n_m, n_l, cos_theta_m, cos_theta_l,):
     a = n_m*cos_theta_m
     b = n_m*cos_theta_l
     c = n_l*cos_theta_l
@@ -69,9 +95,13 @@ def compute_polarization(n_m, n_l, cos_theta_m, cos_theta_l,):
 
     return rp, rs, tp, ts
 
-def cos_theta_i(n, n_0, sin_theta_0):
-    sin_theta = (conjugate(n) / modulus_sqrd(n)) * n_0 * sin_theta_0
-    return cmath.sqrt(1.0 - pow(sin_theta, 2.0))
+def cos_theta_i(n_0, n_i, cos_theta_0):
+    blah = n_0/n_i
+    sin_theta_i = blah*blah * (1.0 - (cos_theta_0*cos_theta_0))
+    return cmath.sqrt(1.0 - sin_theta_i)
+
+def d_i(d, v):
+    return rand(d, v)
 
 def D_mat(r_ij, r_ji, t_ij, t_ji):
     return (1.0 / t_ij) * np.matrix(

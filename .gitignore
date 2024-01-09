@@ -3,3 +3,7 @@ __pycache__/
 *.oso
 complex.py
 rgb_to_spec_test.osl
+blender\ scenes/**
+images/*
+blender scenes/zeiss_21mm_lens.blend
+blender scenes/zeiss_21mm_lens.blend1

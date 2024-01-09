@@ -28,8 +28,8 @@ struct IOR
 
 complex sample_IOR(float lambda, IOR ior)
 {
-    float n = RGB_to_SPEC(lambda, ior.n);
-    float k = RGB_to_SPEC(lambda, ior.k);
+    float n = sRGB_to_SPEC(lambda, ior.n);
+    float k = sRGB_to_SPEC(lambda, ior.k);
 
     return complex(n, k);
 }
