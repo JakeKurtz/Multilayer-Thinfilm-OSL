@@ -95,6 +95,7 @@ float rand_range(float start, float end, vector p)
   return (end-start)*hash.x + start;
 }
 
+/* Box Muller Transform */
 float rand(float mu, float var, vector p)
 {
   float u1 = hashnoise(p);
@@ -109,52 +110,62 @@ float rand(float mu, float var, vector p)
 
 /* ----------------------------------- 3D ----------------------------------- */
 
-void basis(vector n, output vector xp, output vector yp)
+/* Rotate a vector perpendicular to another */
+/* https://math.stackexchange.com/questions/3130813/rotating-a-vector-perpendicular-to-another */
+vector rotate_perp(point Q, float angle, vector axis)
 {
-  //MBR frizvald but attempts to deal with z == -1
-  float k = 1.0/max(1.0 + n.z,0.00001);
-  float a =  n.y*k;
-
-  float b =  n.y*a;
-  float c = -n.x*a;
-    
-  xp = vector(n.z+b, c, -n.x);
-  yp = vector(c, 1.0-b, -n.y);
+  vector z = cross(axis, Q);
+  return cos(angle) * Q + sin(angle) * z;
 }
 
-void ggx_anisotropic(float au, float av, vector wo, vector N, vector LN, vector T, point P, output vector wi, output vector lamella_wi) 
+/* https://www.shadertoy.com/view/ltdXRN */
+void calc_tangent_space( vector N, float rotation, output vector TangentU, output vector TangentV )
+{
+	vector Up = vector( 0., 0., 1. );
+  TangentV = rotate_perp(cross(Up, N), rotation, N);
+  TangentU = cross( TangentV, N );
+}
+
+/* Sampling Anisotropic Microfacet BRDF */
+/* https://agraphicsguynotes.com/posts/sample_anisotropic_microfacet_brdf/ */
+
+void ggx_anisotropic(float au, float av, float rotation, vector wo, vector N, vector LN, point P, output vector wi, output vector lamella_wi) 
 {
   vector hash = hashnoise(P);
 
   float e0 = hash.x;
   float e1 = hash.y;
 
-  float bar = 0;
+  float bar = 0.0;
 
-  if (e0 > 0.0 && e0 < .25) bar = 0.0;
-  else if (e0 > .25 && e0 < .75) bar = M_PI;
+  if (e0 > .25 && e0 < .75) bar = M_PI;
   else if (e0 >= .75 && e0 <= 1.0) bar = M_2PI;
 
   float phi =  atan((av/au) * tan(M_2PI * e0)) + bar;
-  float A_phi = pow(cos(phi)/au, 2.0) + pow(sin(phi)/av, 2.0);
+
+  float cos_phi = cos(phi); float sin_phi = sin(phi);
+
+  float A_phi = pow(cos_phi/au, 2.0) + pow(sin_phi/av, 2.0);
 
   float theta = atan(sqrt(-log(e1) / A_phi));
 
+  float sin_theta = sin(theta);
+
   vector h = vector(
-    sin(theta) * cos(phi),
+    sin_theta * cos_phi,
     cos(theta),
-    sin(theta) * sin(phi)
+    sin_theta * sin_phi
   );
 
-  vector B = cross(N,T);
+  normal B, T;
+  calc_tangent_space(N, rotation, B, T);
 
   vector sample = normalize(T*h.x + N*h.y + B*h.z);
-
   vector sample_l = sample;
 
   if (N != LN) {
-    vector LB, LT;
-    basis(LN, LB, LT);
+    normal LB, LT;
+    calc_tangent_space(LN, rotation, LB, LT);
     sample_l = normalize(LT*h.x + LN*h.y + LB*h.z);
   }
 
@@ -179,8 +190,8 @@ vector ggx(float a, vector wo, vector N, point P) {
     sin(theta) * sin(phi)
   );
 
-  normal T, B;
-  basis(N, T, B);
+  normal B, T;
+  calc_tangent_space(N, 0.0, B, T);
 
   vector sample = normalize(T*h.x + N*h.y + B*h.z);
   vector wi = normalize(reflect(-wo, sample));
@@ -193,9 +204,9 @@ vector sample_wi(float alpha, vector wo, vector N, point P)
   return ggx(alpha, wo, N, P);
 }
 
-void sample_wi(float alpha, float anisotropy, float rotation, vector wo, vector N, vector LN, vector T, point P, output vector wi, output vector lamella_wi) 
+void sample_wi(float alpha, float anisotropy, float rotation, vector wo, vector N, vector LN, point P, output vector wi, output vector lamella_wi) 
 {
   float alpha_x = max(alpha * alpha * (1.0 + anisotropy), 0.001);
   float alpha_y = max(alpha * alpha * (1.0 - anisotropy), 0.001);
-  ggx_anisotropic(alpha_x, alpha_y, wo, N, LN, T, P, wi, lamella_wi);
+  ggx_anisotropic(alpha_x, alpha_y, rotation, wo, N, LN, P, wi, lamella_wi);
 }

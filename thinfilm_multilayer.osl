@@ -65,9 +65,9 @@ void thin_film(vector lambda, Film film_a, Film film_b, float cos_theta, output 
 
     vector intensity = (1.0 - phi) * numer / denom;
 
-    vector maximum = 2.0 * (1+psi) / (1-psi);
+    vector peak_max = 2.0 * (1+psi) / (1-psi);
 
-    R = (intensity/maximum);
+    R = (intensity / peak_max);
 }
 
 shader ThinFilm
@@ -80,16 +80,16 @@ shader ThinFilm
     [[ 
         string help = "",
         string label = "Film IOR",
-        color min = 0,
-        color max = 25
+        float min = 0,
+        float max = 25
     ]],
     
     float film_0_sd = 16.0
     [[ 
         string help = "",
         string label = "Film 0 Sigma (nm)",
-        color min = 0,
-        color max = 1
+        float min = 0,
+        float max = 1000
     ]],
     
     float film_0_d = 120.0
@@ -104,16 +104,16 @@ shader ThinFilm
     [[ 
         string help = "",
         string label = "Film 1 IOR",
-        color min = 0,
-        color max = 25
+        float min = 0,
+        float max = 25
     ]],
     
     float film_1_sd = 16.0
     [[ 
         string help = "",
         string label = "Film 1 Sigma (nm)",
-        color min = 0,
-        color max = 1
+        float min = 0,
+        float max = 1000
     ]],
     
     float film_1_d = 90.0
@@ -192,7 +192,7 @@ shader ThinFilm
     vector h,  lamella_h;
 
     sample_wi(
-        clamp(roughness, 0.001, 1.0), clamp(anisotropy, -1.0, 1.0), rotation, 
+        roughness, anisotropy, rotation, 
         wo, Normal, LNormal, Tangent, P,
         wi, lamella_wi);
 
@@ -218,8 +218,9 @@ shader ThinFilm
     }
 
     float lamella_falloff = 1.0;
-    if (dot(LNormal, wo) < 0.0) {
-        lamella_falloff = mix(0.0, 1.0, pow(1.0 - abs(dot(LNormal, wo)), fall_off));
+    float Lcos_theta = dot(LNormal, wo);
+    if (Lcos_theta < 0.0) {
+        lamella_falloff = mix(0.0, 1.0, pow(1.0 + Lcos_theta, fall_off));
     }
 
     color rgb_R = Kr + ( (1.0 - Kr) * SPEC_to_sRGB(spec_R, lambda_samples) ) * lamella_falloff;
