@@ -128,7 +128,6 @@ void calc_tangent_space( vector N, float rotation, output vector TangentU, outpu
 
 /* Sampling Anisotropic Microfacet BRDF */
 /* https://agraphicsguynotes.com/posts/sample_anisotropic_microfacet_brdf/ */
-
 void ggx_anisotropic(float au, float av, float rotation, vector wo, vector N, vector LN, point P, output vector wi, output vector lamella_wi) 
 {
   vector hash = hashnoise(P);
