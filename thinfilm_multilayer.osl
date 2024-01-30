@@ -18,9 +18,6 @@
 * ------------------------------------------------------------------------- */
 
 #include "spectral.h"
-#include "thinfilm.h"
-#include "complex.h"
-#include "ior.h"
 
 #define SPECTRAL
 
@@ -32,40 +29,40 @@ struct Film
 };
 
 float cgf(Film film, float phase) {
-    return (phase*phase * film.v * .5);
+    return (pow2(phase) * film.v / (pow2(film.d)*2.0));
 }
 
 float phase(Film film, float lambda, float cos_theta) 
 {
-    float _sin_theta = (1.0 - (cos_theta*cos_theta)) / pow(film.n, 2.0);
+    float _sin_theta = (1.0 - (pow2(cos_theta))) / pow(film.n, 2.0);
     float _cos_theta = sqrt(1.0 - _sin_theta);
 
-    return (M_4PI * film.n * film.d * sin(grazing_angle)) / lambda;
+    return (M_4PI * film.n * film.d * _cos_theta) / lambda;
 }
 
-void thin_film(vector lambda, Film film_a, Film film_b, float cos_theta, output vector R)
+void thin_film(float lambda, Film film_a, Film film_b, float cos_theta, output float R)
 {
-    vector phase_a = phase(film_a, lambda, cos_theta);
-    vector phase_b = phase(film_b, lambda, cos_theta);
+    float phase_a = phase(film_a, lambda, cos_theta);
+    float phase_b = phase(film_b, lambda, cos_theta);
 
-    vector alpha_a = cgf(film_a, phase_a);
-    vector alpha_b = cgf(film_b, phase_b);
+    float alpha_a = cgf(film_a, phase_a);
+    float alpha_b = cgf(film_b, phase_b);
 
-    vector phi = exp(-2.0*(alpha_a + alpha_b));
-    vector psi = exp(-1.0*(alpha_a + alpha_b));
+    float phi = exp(-2.0*(alpha_a + alpha_b));
+    float psi = exp(-1.0*(alpha_a + alpha_b));
 
-    vector x = (exp(-alpha_a) + exp(-alpha_b))/(1.0 + psi);
-    vector y = (exp(-alpha_a) - exp(-alpha_b))/(1.0 - psi);
+    float x = (exp(-alpha_a) + exp(-alpha_b))/(1.0 + psi);
+    float y = (exp(-alpha_a) - exp(-alpha_b))/(1.0 - psi);
 
-    vector _M = (phase_a + phase_b) * .5;
-    vector _N = (phase_a - phase_b) * .5;
+    float _M = (phase_a + phase_b) * .5;
+    float _N = (phase_a - phase_b) * .5;
 
-    vector numer = 1 - cos(_M)*cos(_N)*x + sin(_M)*sin(_N)*y;
-    vector denom = 1 + phi - 2.0 * cos(2.0*_M) * psi;
+    float numer = 1 - cos(_M)*cos(_N)*x + sin(_M)*sin(_N)*y;
+    float denom = 1 + phi - 2.0 * cos(2.0*_M) * psi;
 
-    vector intensity = (1.0 - phi) * numer / denom;
+    float intensity = (1.0 - phi) * numer / denom;
 
-    vector peak_max = 2.0 * (1+psi) / (1-psi);
+    float peak_max = 2.0 * (1+psi) / (1-psi);
 
     R = (intensity / peak_max);
 }
@@ -79,7 +76,7 @@ shader ThinFilm
     float film_0_n = 1.56
     [[ 
         string help = "",
-        string label = "Film IOR",
+        string label = "Film 0 IOR",
         float min = 0,
         float max = 25
     ]],
@@ -95,7 +92,7 @@ shader ThinFilm
     float film_0_d = 120.0
     [[ 
         string help = "",
-        string label = "Film Thickness",
+        string label = "Film 0 Thickness",
         float min = 0,
         float max = 5000
     ]],
@@ -124,34 +121,10 @@ shader ThinFilm
         float max = 5000
     ]],
 
-    float fall_off = 0.0
+    float fall_off = 15.0
     [[ 
         string help = "",
         string label = "Fall Off Speed"
-    ]],
-    
-    float roughness = 0.0
-    [[ 
-        string help = "",
-        string label = "Roughness",
-        float min = 0.001,
-        float max = 1.0
-    ]],
-
-    float anisotropy = 0.5
-    [[ 
-        string help = "",
-        string label = "Anisotropy",
-        float min = -1.0,
-        float max = 1.0
-    ]],
-
-    float rotation = 0.0
-    [[ 
-        string help = "",
-        string label = "Rotation",
-        float min = 0.0,
-        float max = 1.0
     ]],
 
     normal Normal = N
@@ -162,11 +135,6 @@ shader ThinFilm
     normal LNormal = N
     [[ 
         string label = "Lamella Normal"
-    ]],
-
-    normal Tangent = normal(0.0)
-    [[ 
-        string label = "Tangent"
     ]],
 
 /* -------------------------------------------------------------------------- */
@@ -183,47 +151,31 @@ shader ThinFilm
 	]]
 )
 {
-    Film film_a = Film(film_0_d, pow(film_0_sd, 2.0) / pow(film_0_d, 2.0), film_0_n);
-    Film film_b = Film(film_1_d, pow(film_1_sd, 2.0) / pow(film_1_d, 2.0), film_1_n);
+    Film film_a = Film(film_0_d, pow2(film_0_sd), film_0_n);
+    Film film_b = Film(film_1_d, pow2(film_1_sd), film_1_n);
 
-    vector wo = I;
-
-    vector wi, lamella_wi;
-    vector h,  lamella_h;
-
-    sample_wi(
-        roughness, anisotropy, rotation, 
-        wo, Normal, LNormal, Tangent, P,
-        wi, lamella_wi);
-
-    h = normalize(wo + wi);
-    lamella_h = normalize(wo + lamella_wi);
-
-    float cos_theta_0 = dot(lamella_h, wo);
+    float cos_theta = dot(N, I);
+    float Lcos_theta = dot(LNormal, I);
 
     float eta = backfacing() ? 1.0/film_a.n : film_a.n;
 
-    float Kr, Kt;
-    vector vR, vT;
-    fresnel(wo, h, 1.0/eta, Kr, Kt, vR, vT);
+    float Fr = fresnel(cos_theta, eta);
 
     float lambda_samples[LAMBDA_SAMPLES];
     gen_lambda_samples(I+P, lambda_samples);
 
     float spec_R[LAMBDA_SAMPLES];
-    float spec_T[LAMBDA_SAMPLES];
 
     for (int i = 0; i < LAMBDA_SAMPLES; i++) {
-        thin_film(lambda_samples[i], film_a, film_b, cos_theta_0, spec_R[i], spec_T[i]);
+        thin_film(lambda_samples[i], film_a, film_b, Lcos_theta, spec_R[i]);
     }
 
     float lamella_falloff = 1.0;
-    float Lcos_theta = dot(LNormal, wo);
     if (Lcos_theta < 0.0) {
         lamella_falloff = mix(0.0, 1.0, pow(1.0 + Lcos_theta, fall_off));
     }
 
-    color rgb_R = Kr + ( (1.0 - Kr) * SPEC_to_sRGB(spec_R, lambda_samples) ) * lamella_falloff;
+    color rgb_R = Fr + ( (1.0 - Fr) * SPEC_to_sRGB(spec_R, lambda_samples) ) * lamella_falloff;
     color rgb_T = 1.0 - rgb_R;
 
     R = rgb_R;

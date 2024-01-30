@@ -110,6 +110,33 @@ float rand(float mu, float var, vector p)
 
 /* ----------------------------------- 3D ----------------------------------- */
 
+/* SPDX-FileCopyrightText: 2009-2010 Sony Pictures Imageworks Inc., et al. All Rights Reserved.
+ * SPDX-FileCopyrightText: 2011-2022 Blender Foundation
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Adapted code from Open Shading Language. */
+float fresnel(float cosi, float eta)
+{
+  /* compute fresnel reflectance without explicitly computing
+   * the refracted direction */
+  float c = fabs(cosi);
+  float g = eta * eta - 1 + c * c;
+  float result;
+
+  if (g > 0.0) {
+    g = sqrt(g);
+    float A = (g - c) / (g + c);
+    float B = (c * (g + c) - 1) / (c * (g - c) + 1);
+    result = 0.5 * A * A * (1 + B * B);
+  }
+  else {
+    result = 1.0; /* TIR (no refracted component) */
+  }
+
+  return result;
+}
+
 /* Rotate a vector perpendicular to another */
 /* https://math.stackexchange.com/questions/3130813/rotating-a-vector-perpendicular-to-another */
 vector rotate_perp(point Q, float angle, vector axis)
@@ -122,7 +149,7 @@ vector rotate_perp(point Q, float angle, vector axis)
 void calc_tangent_space( vector N, float rotation, output vector TangentU, output vector TangentV )
 {
 	vector Up = vector( 0., 0., 1. );
-  TangentV = rotate_perp(cross(Up, N), rotation, N);
+  TangentV = normalize(rotate_perp(cross(Up, N), rotation, N));
   TangentU = cross( TangentV, N );
 }
 
@@ -130,23 +157,26 @@ void calc_tangent_space( vector N, float rotation, output vector TangentU, outpu
 /* https://agraphicsguynotes.com/posts/sample_anisotropic_microfacet_brdf/ */
 void ggx_anisotropic(float au, float av, float rotation, vector wo, vector N, vector LN, point P, output vector wi, output vector lamella_wi) 
 {
-  vector hash = hashnoise(P);
+  float e0 = hashnoise(P);
+  float e1 = hashnoise(P+wo);
 
-  float e0 = hash.x;
-  float e1 = hash.y;
+  //vector hash = hashnoise(P);
+  //float e0 = hash.x;
+  //float e1 = hash.y;
 
   float bar = 0.0;
 
   if (e0 > .25 && e0 < .75) bar = M_PI;
   else if (e0 >= .75 && e0 <= 1.0) bar = M_2PI;
 
-  float phi =  atan((av/au) * tan(M_2PI * e0)) + bar;
+  float phi = atan((av/au) * tan(M_2PI * e0)) + bar;
 
   float cos_phi = cos(phi); float sin_phi = sin(phi);
 
   float A_phi = pow(cos_phi/au, 2.0) + pow(sin_phi/av, 2.0);
 
-  float theta = atan(sqrt(-log(e1) / A_phi));
+  //float theta = atan(sqrt(e1 / ((1.0 - e1)*A_phi)));
+  float theta = acos(sqrt((A_phi*(1.0-e1)) / (e1*(1.0-A_phi)+A_phi)));
 
   float sin_theta = sin(theta);
 
@@ -175,10 +205,8 @@ void ggx_anisotropic(float au, float av, float rotation, vector wo, vector N, ve
 vector ggx(float a, vector wo, vector N, point P) {
   float a2 = a*a;
 
-  vector hash = hashnoise(P);
-
-  float e0 = hash.x;
-  float e1 = hash.y;
+  float e0 = hashnoise(P);
+  float e1 = hashnoise(P+wo);
 
   float theta = acos(sqrt((1.0 - e0) / (e0 * (a2 - 1.0) + 1.0)));
   float phi = M_2PI * e1;

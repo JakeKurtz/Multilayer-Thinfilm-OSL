@@ -1,10 +1,2 @@
-__pycache__/
-.vscode/
+*.blend1
 *.oso
-complex.py
-rgb_to_spec_test.osl
-blender\ scenes/**
-images/*
-blender scenes/zeiss_21mm_lens.blend
-blender scenes/zeiss_21mm_lens.blend1
-bmps_ML_thinfilm.blend1

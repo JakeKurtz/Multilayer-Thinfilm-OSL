@@ -18,9 +18,6 @@
 * ------------------------------------------------------------------------- */
 
 #include "spectral_oslpy.h"
-#include "thinfilm.h"
-#include "complex.h"
-#include "ior.h"
 
 struct Film
 {
@@ -35,12 +32,6 @@ vector cgf(Film film, vector phase) {
 
 vector phase(Film film, vector lambda, float cos_theta) 
 {
-    //float theta = acos(cos_theta);
-    //float _sin_theta = sin(theta) / film.n;
-
-    //float incident_angle = asin(_sin_theta);
-    //float grazing_angle = (M_PI/2.0) - incident_angle;
-
     float _sin_theta = (1.0 - (cos_theta*cos_theta)) / pow(film.n, 2.0);
     float _cos_theta = sqrt(1.0 - _sin_theta);
 
@@ -133,30 +124,6 @@ shader ThinFilm
         string help = "",
         string label = "Fall Off Speed"
     ]],
-    
-    float roughness = 0.0
-    [[ 
-        string help = "",
-        string label = "Roughness",
-        float min = 0.001,
-        float max = 1.0
-    ]],
-
-    float anisotropy = 0.5
-    [[ 
-        string help = "",
-        string label = "Anisotropy",
-        float min = -1.0,
-        float max = 1.0
-    ]],
-
-    float rot_percent = 0.0
-    [[ 
-        string help = "",
-        string label = "Rotation",
-        float min = 0.0,
-        float max = 1.0
-    ]],
 
     normal Normal = N
     [[ 
@@ -185,37 +152,24 @@ shader ThinFilm
     Film film_a = Film(film_0_d, pow(film_0_sd, 2.0) / pow(film_0_d, 2.0), film_0_n);
     Film film_b = Film(film_1_d, pow(film_1_sd, 2.0) / pow(film_1_d, 2.0), film_1_n);
 
-    vector wo = I;
-
-    vector wi, lamella_wi;
-    vector h,  lamella_h;
-
-    sample_wi(
-        roughness, anisotropy, rot_percent * M_2PI, 
-        wo, Normal, LNormal, P,
-        wi, lamella_wi);
-
-    h = normalize(wo + wi);
-    lamella_h = normalize(wo + lamella_wi);
-
-    float cos_theta_0 = dot(lamella_h, wo);
+    float cos_theta = dot(N, I);
+    float Lcos_theta = dot(LNormal, I);
 
     float eta = backfacing() ? 1.0/film_a.n : film_a.n;
 
     float Kr, Kt;
     vector vR, vT;
-    fresnel(wo, h, 1.0/eta, Kr, Kt, vR, vT);
+    fresnel(I, N, 1.0/eta, Kr, Kt, vR, vT);
 
     vector lambda_samples[ARRAY_SIZE];
     gen_lambda_samples(P+I, lambda_samples);
 
     vector spec_R[ARRAY_SIZE];
 
-    thin_film(lambda_samples[0], film_a, film_b, cos_theta_0, spec_R[0]);
-    thin_film(lambda_samples[1], film_a, film_b, cos_theta_0, spec_R[1]);
+    thin_film(lambda_samples[0], film_a, film_b, cos_theta, spec_R[0]);
+    thin_film(lambda_samples[1], film_a, film_b, cos_theta, spec_R[1]);
 
     float lamella_falloff = 1.0;
-    float Lcos_theta = dot(LNormal, wo);
     if (Lcos_theta < 0.0) {
         lamella_falloff = mix(0.0, 1.0, pow(1.0 + Lcos_theta, fall_off));
     }
