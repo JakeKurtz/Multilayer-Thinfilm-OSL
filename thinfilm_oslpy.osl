@@ -1,0 +1,158 @@
+/* ------------------------------------------------------------------------- *
+*
+*    Copyright (C) 2024 Jake Kurtz
+*
+*    This program is free software: you can redistribute it and/or modify
+*    it under the terms of the GNU General Public License as published by
+*    the Free Software Foundation, either version 3 of the License, or
+*    (at your option) any later version.
+*
+*    This program is distributed in the hope that it will be useful,
+*    but WITHOUT ANY WARRANTY; without even the implied warranty of
+*    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+*    GNU General Public License for more details.
+*
+*    You should have received a copy of the GNU General Public License
+*    along with this program. If not, see <https://www.gnu.org/licenses/>.
+*
+* ------------------------------------------------------------------------- */
+
+#include "spectral_oslpy.h"
+
+vector thin_film(
+    vector lambda, 
+    float ct_0,     float ct_1,    float ct_2, 
+    float alpha_s,  float alpha_p, 
+    float beta_s,   float beta_p, 
+    float n_1,      float n_2, 
+    float d
+    ) 
+{
+    float d10 = (n_1 > 1.0) ? 0.0 : M_PI;
+    float d12 = (n_1 > n_2) ? 0.0 : M_PI;
+    float delta = d10+d12;
+
+    vector phi = (M_4PI/lambda) * (n_1*ct_1*d) + delta;
+
+    vector cos_phi = 2.0*cos(phi);
+
+    vector ts = beta_s / (alpha_s*(alpha_s - cos_phi) + 1.0);
+    vector tp = beta_p / (alpha_p*(alpha_p - cos_phi) + 1.0);
+
+    vector t = ((n_2*ct_2*(ts + tp)) / (2.0*ct_0));
+    
+    return 1.0 - t;
+}
+
+void compute_fresnel(
+    float n_m,          float n_l, 
+    float cos_theta_m,  float cos_theta_l,
+    output float rp, output float rs, 
+    output float tp, output float ts
+    ) 
+{
+    float a = n_m*cos_theta_m;  float b = n_m*cos_theta_l;
+    float c = n_l*cos_theta_l;  float d = n_l*cos_theta_m;
+
+    float denom_1 = b + d;  float denom_2 = a + c;
+    float numer_1 = 2.0*a;
+
+    rp = (d - b) / denom_1;
+    rs = (a - c) / denom_2;
+
+    tp = numer_1 / denom_1;
+    ts = numer_1 / denom_2;
+}
+
+shader ThinFilm
+(
+/* -------------------------------------------------------------------------- */
+/*                                   Inputs                                   */
+/* -------------------------------------------------------------------------- */
+    float n_2 = 1.0
+    [[ 
+        string help = "",
+        string label = "IOR",
+        float min = 0,
+        float max = 25
+    ]],
+    float n_1 = 1.56
+    [[ 
+        string help = "",
+        string label = "Film IOR",
+        float min = 0,
+        float max = 25
+    ]],
+	float d = 200.0
+    [[ 
+        string help = "",
+        string label = "Film Thickness",
+        float min = 0,
+        float max = 5000
+    ]],
+	normal Normal = N
+    [[ 
+        string label = "Normal"
+    ]],
+/* -------------------------------------------------------------------------- */
+/*                                   Outputs                                  */
+/* -------------------------------------------------------------------------- */
+	output color R = 1.0
+    [[
+		string help = ""
+	]],
+	output color T = 0.0
+    [[
+		string help = ""
+	]]
+)
+{
+    float n_0 = 1.0;
+
+    vector l[ARRAY_SIZE];
+    gen_lambda_samples(P, l);
+
+    vector spec_R[ARRAY_SIZE];
+
+    float ct_0 = abs(dot(N, I));
+    float st_0 = sqrt(1.0 - ct_0*ct_0);
+    
+    float st_1 = st_0/n_1;
+    float ct_1 = sqrt(1.0 - st_1*st_1);
+
+    float st_2 = st_0/n_2;
+    float ct_2 = sqrt(1.0 - st_2*st_2);
+
+    float rp_01, tp_01;
+    float rs_01, ts_01;
+    
+    float rp_10, tp_10;
+    float rs_10, ts_10;
+    
+    float rp_12, tp_12;
+    float rs_12, ts_12;
+
+    compute_fresnel(
+            n_0,   n_1,   ct_0,  ct_1,
+            rp_01, rs_01, tp_01, ts_01);
+    compute_fresnel(
+            n_1,   n_0,   ct_1,  ct_0,
+            rp_10, rs_10, tp_10, ts_10);
+    compute_fresnel(
+            n_1,   n_2,   ct_1,  ct_2,
+            rp_12, rs_12, tp_12, ts_12);
+
+    float alpha_s = rs_10*rs_12;
+    float alpha_p = rp_10*rp_12;
+
+    float beta_s = pow(ts_01*ts_12,2.0);
+    float beta_p = pow(tp_01*tp_12,2.0);
+
+    spec_R[0] = thin_film(l[0], ct_0, ct_1, ct_2, alpha_s, alpha_p, beta_s, beta_p, n_1, n_2, d);
+    spec_R[1] = thin_film(l[1], ct_0, ct_1, ct_2, alpha_s, alpha_p, beta_s, beta_p, n_1, n_2, d);
+    spec_R[2] = thin_film(l[2], ct_0, ct_1, ct_2, alpha_s, alpha_p, beta_s, beta_p, n_1, n_2, d);
+    spec_R[3] = thin_film(l[3], ct_0, ct_1, ct_2, alpha_s, alpha_p, beta_s, beta_p, n_1, n_2, d);
+
+    R = SPEC_to_sRGB(spec_R, l);
+    T = 1.0 - R;
+}

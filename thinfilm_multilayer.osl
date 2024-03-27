@@ -19,8 +19,6 @@
 
 #include "spectral.h"
 
-#define SPECTRAL
-
 struct Film
 {
     float d; // Film thickness (nm)
@@ -67,7 +65,7 @@ void thin_film(float lambda, Film film_a, Film film_b, float cos_theta, output f
     R = (intensity / peak_max);
 }
 
-shader ThinFilm
+shader ML_ThinFilm
 (
 /* -------------------------------------------------------------------------- */
 /*                                   Inputs                                   */

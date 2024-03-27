@@ -21,7 +21,7 @@
 #include "util.h"
 #pragma once
 
-#define ARRAY_SIZE 2
+#define ARRAY_SIZE 4
 
 #define LAMBDA_SAMPLES ARRAY_SIZE * 3
 #define LAMBDA_MIN 380
@@ -86,6 +86,14 @@ vector SPEC_to_XYZ(vector spec[ARRAY_SIZE], vector lamb_samples[ARRAY_SIZE])
         XYZ += CMF_to_XYZ(lamb_samples[1].x) * spec[1].x;
         XYZ += CMF_to_XYZ(lamb_samples[1].y) * spec[1].y;
         XYZ += CMF_to_XYZ(lamb_samples[1].z) * spec[1].z;
+    }{
+        XYZ += CMF_to_XYZ(lamb_samples[2].x) * spec[2].x;
+        XYZ += CMF_to_XYZ(lamb_samples[2].y) * spec[2].y;
+        XYZ += CMF_to_XYZ(lamb_samples[2].z) * spec[2].z;
+    }{
+        XYZ += CMF_to_XYZ(lamb_samples[3].x) * spec[3].x;
+        XYZ += CMF_to_XYZ(lamb_samples[3].y) * spec[3].y;
+        XYZ += CMF_to_XYZ(lamb_samples[3].z) * spec[3].z;
     }
     return XYZ * SCALE;
 }
@@ -124,11 +132,53 @@ vector XYZ_coords(float l)
 void gen_lambda_samples(point p, output vector lambda_samples[ARRAY_SIZE])
 {
     float lambda_h = rand_range(LAMBDA_MIN, LAMBDA_MAX, p);
+    /*
     {
-        vector x = (lambda_h - vector(152000.0, 152066.64, 152133.32));
+        vector x = (lambda_h - vector(380.0, 446.666, 513.333));
         lambda_samples[0] = mod(x, 400.0) + float(LAMBDA_MIN);
     }{
-        vector x = (lambda_h - vector(152200.0, 152266.64, 152333.32));
+        vector x = (lambda_h - vector(580.0, 646.666, 713.333));
         lambda_samples[1] = mod(x, 400.0) + float(LAMBDA_MIN);
+    }*/
+    
+    /*
+    {
+        vector x = (lambda_h - vector(380.0, 424.44, 468.88));
+        lambda_samples[0] = mod(x, 400.0) + float(LAMBDA_MIN);
+    }{
+        vector x = (lambda_h - vector(513.33, 557.77, 602.22));
+        lambda_samples[1] = mod(x, 400.0) + float(LAMBDA_MIN);
+    }{
+        vector x = (lambda_h - vector(646.66, 691.11, 735.55));
+        lambda_samples[2] = mod(x, 400.0) + float(LAMBDA_MIN);
+    }*/
+
+    /*
+    {
+        vector x = (lambda_h - vector(380.0, 413.33, 446.66));
+        lambda_samples[0] = mod(x, 400.0) + float(LAMBDA_MIN);
+    }{
+        vector x = (lambda_h - vector(480.0, 513.33, 546.66));
+        lambda_samples[1] = mod(x, 400.0) + float(LAMBDA_MIN);
+    }{
+        vector x = (lambda_h - vector(580.0, 613.33, 646.66));
+        lambda_samples[2] = mod(x, 400.0) + float(LAMBDA_MIN);
+    }{
+        vector x = (lambda_h - vector(680.0, 713.33, 746.66));
+        lambda_samples[3] = mod(x, 400.0) + float(LAMBDA_MIN);
+    }*/
+
+    {
+        vector x = (lambda_h - vector(380.0, 413.33, 446.66));
+        lambda_samples[0] = mod(x, 400.0) + float(LAMBDA_MIN);
+    }{
+        vector x = (lambda_h - vector(480.0, 513.33, 546.66));
+        lambda_samples[1] = mod(x, 400.0) + float(LAMBDA_MIN);
+    }{
+        vector x = (lambda_h - vector(580.0, 613.33, 646.66));
+        lambda_samples[2] = mod(x, 400.0) + float(LAMBDA_MIN);
+    }{
+        vector x = (lambda_h - vector(680.0, 713.33, 746.66));
+        lambda_samples[3] = mod(x, 400.0) + float(LAMBDA_MIN);
     }
 }

@@ -21,7 +21,7 @@
 #include "util.h"
 #pragma once
 
-#define LAMBDA_SAMPLES 30
+#define LAMBDA_SAMPLES 12
 #define LAMBDA_MIN 380
 #define LAMBDA_MAX 780
 #define LAMBDA_STEP float(LAMBDA_MAX - LAMBDA_MIN) / float(LAMBDA_SAMPLES)

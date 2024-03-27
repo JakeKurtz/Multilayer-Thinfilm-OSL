@@ -145,7 +145,6 @@ vector rotate_perp(point Q, float angle, vector axis)
   return cos(angle) * Q + sin(angle) * z;
 }
 
-/* https://www.shadertoy.com/view/ltdXRN */
 void calc_tangent_space( vector N, float rotation, output vector TangentU, output vector TangentV )
 {
 	vector Up = vector( 0., 0., 1. );
