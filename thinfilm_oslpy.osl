@@ -24,15 +24,11 @@ vector thin_film(
     float ct_0,     float ct_1,    float ct_2, 
     float alpha_s,  float alpha_p, 
     float beta_s,   float beta_p, 
-    float n_1,      float n_2, 
+    float n_1,      float n_2,
     float d
     ) 
 {
-    float d10 = (n_1 > 1.0) ? 0.0 : M_PI;
-    float d12 = (n_1 > n_2) ? 0.0 : M_PI;
-    float delta = d10+d12;
-
-    vector phi = (M_4PI/lambda) * (n_1*ct_1*d) + delta;
+    vector phi = (M_4PI/lambda) * (n_1*ct_1*d);
 
     vector cos_phi = 2.0*cos(phi);
 
