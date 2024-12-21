@@ -110,7 +110,7 @@ shader ThinFilm
 
     vector spec_R[ARRAY_SIZE];
 
-    float ct_0 = abs(dot(N, I));
+    float ct_0 = abs(dot(Normal, I));
     float st_0 = sqrt(1.0 - ct_0*ct_0);
     
     float st_1 = st_0/n_1;

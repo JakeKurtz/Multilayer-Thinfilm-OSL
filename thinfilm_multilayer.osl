@@ -119,7 +119,7 @@ shader ML_ThinFilm
         float max = 5000
     ]],
 
-    float fall_off = 15.0
+    float falloff = 15.0
     [[ 
         string help = "",
         string label = "Fall Off Speed"
@@ -152,7 +152,7 @@ shader ML_ThinFilm
     Film film_a = Film(film_0_d, pow2(film_0_sd), film_0_n);
     Film film_b = Film(film_1_d, pow2(film_1_sd), film_1_n);
 
-    float cos_theta = dot(N, I);
+    float cos_theta = dot(Normal, I);
     float Lcos_theta = dot(LNormal, I);
 
     float eta = backfacing() ? 1.0/film_a.n : film_a.n;
@@ -170,7 +170,7 @@ shader ML_ThinFilm
 
     float lamella_falloff = 1.0;
     if (Lcos_theta < 0.0) {
-        lamella_falloff = mix(0.0, 1.0, pow(1.0 + Lcos_theta, fall_off));
+        lamella_falloff = mix(0.0, 1.0, pow(1.0 + Lcos_theta, falloff));
     }
 
     color rgb_R = Fr + ( (1.0 - Fr) * SPEC_to_sRGB(spec_R, lambda_samples) ) * lamella_falloff;
